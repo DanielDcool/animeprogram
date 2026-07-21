@@ -33,6 +33,7 @@ npm start
 | ← / → | 上一句 / 下一句 |
 | D | 当前句 AI 深度讲解（需在设置页配 Anthropic API key；同句缓存，不重复计费）|
 | S | 字幕常显开关（普通看番模式）|
+| T | 在「解析 / 字幕一覧」之间切换；点列表中的句子会跳转、暂停并解析 |
 | [ / ] | 字幕偏移 ±100ms（持久保存）|
 
 ## 生词本
@@ -46,8 +47,9 @@ npm start
 - `server/`：Fastify + better-sqlite3 + kuromoji + JMdict + Claude API（claude-opus-4-8）
 - `web/`：Vite + React，学习模式状态机是纯 reducer（`web/src/player/learningMode.ts`）
 - H.265/10bit 源浏览器无法播放，媒体库会标记「要トランスコード」，建议换 H.264 源
-- 测试：`npm test`（server 40 / web 8）
+- 测试：`npm test`
+- AI 协作与开发上下文：先读 `AGENTS.md` 和 `docs/DEVELOPMENT.md`
 
 ## 第二版计划
 
-~~jimaku.cc 字幕自动匹配~~（已完成）→ 生词本/Anki 导出 → nyaa 搜索下载。
+~~jimaku.cc 字幕自动匹配~~ → ~~生词本/Anki TSV 导出~~ → nyaa 搜索下载（未开始，开工前先确认设计）。
