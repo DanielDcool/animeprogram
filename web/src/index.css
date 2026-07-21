@@ -136,3 +136,17 @@ input:focus { outline: none; border-color: var(--accent); }
 .explain-box .hint { color: var(--text-muted); }
 
 .fav-btn { margin-top: auto; width: 100%; color: var(--text-muted); }
+.fav-btn:disabled { color: var(--warm); opacity: 1; }
+.star-btn { margin-left: 10px; font-size: 12px; padding: 2px 8px; vertical-align: 2px; }
+.star-btn:disabled { color: var(--warm); opacity: 1; }
+
+/* ---- 単語帳 ---- */
+.vocab-list { list-style: none; padding: 0; }
+.vocab-list li { display: flex; gap: 10px; padding: 12px 4px; border-bottom: 1px solid #2a2a2e; }
+.vocab-main { flex: 1; min-width: 0; font-size: 15px; line-height: 1.6; }
+.vocab-main .reading { color: var(--text-muted); margin-left: 8px; font-size: 13px; }
+.vocab-gloss { color: var(--text); font-size: 14px; margin-top: 2px; }
+.vocab-sentence { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+.vocab-src { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+.vocab-src a { color: var(--accent); }
+.del-btn { align-self: center; font-size: 12px; padding: 4px 9px; color: var(--text-muted); flex-shrink: 0; }

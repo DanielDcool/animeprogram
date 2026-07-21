@@ -1,4 +1,4 @@
-import type { MediaItem, SubtitleData, Token, Explanation } from './types';
+import type { MediaItem, SubtitleData, Token, Explanation, VocabItem } from './types';
 
 async function j<T>(res: Response): Promise<T> {
   if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status, body: await res.json().catch(() => null) });
@@ -22,6 +22,13 @@ export const api = {
       j<{ mappingEntryId: number | null; candidates: { id: number; name: string; englishName: string | null; japaneseName: string | null }[] }>(r)),
   jimakuDownload: (id: number, entryId?: number) =>
     fetch(`/api/media/${id}/jimaku/download`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(entryId != null ? { entryId } : {}) }).then((r) => j<{ ok: true; file: string }>(r)),
+  saveVocab: (item: {
+    kind: 'word' | 'sentence'; word?: string; reading?: string; gloss?: string;
+    sentence: string; translation?: string; mediaId?: number; positionSec?: number;
+  }) =>
+    fetch('/api/vocab', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(item) }).then((r) => j<{ saved: boolean }>(r)),
+  listVocab: () => fetch('/api/vocab').then((r) => j<VocabItem[]>(r)),
+  deleteVocab: (id: number) => fetch(`/api/vocab/${id}`, { method: 'DELETE' }).then((r) => j(r)),
   getSettings: () => fetch('/api/settings').then((r) => j<{ ai_model: string; anthropic_api_key_set: boolean; jimaku_api_key_set: boolean }>(r)),
   saveSettings: (s: Record<string, string>) =>
     fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(s) }).then((r) => j(r)),

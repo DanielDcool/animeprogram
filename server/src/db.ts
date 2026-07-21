@@ -41,6 +41,19 @@ export function createDb(file: string): Db {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS vocab (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL CHECK(kind IN ('word','sentence')),
+      word TEXT,              -- 辞書形（kind=word のみ）
+      reading TEXT,
+      gloss TEXT,
+      sentence TEXT NOT NULL,
+      translation TEXT,       -- AI 翻訳（あれば）
+      media_id INTEGER REFERENCES media(id),
+      position_sec REAL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_vocab_unique ON vocab(kind, IFNULL(word,''), sentence);
     CREATE TABLE IF NOT EXISTS jimaku_mapping (
       series TEXT PRIMARY KEY,
       entry_id INTEGER NOT NULL,

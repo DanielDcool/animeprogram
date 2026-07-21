@@ -5,19 +5,42 @@ import type { Token, Explanation } from '../types';
 interface Props {
   sentence: string | null;   // 一時停止中の現在の句。null = 再生中
   context: string[];
+  mediaId: number;
+  positionSec: number;
 }
 
-export default function AnalysisPanel({ sentence, context }: Props) {
+export default function AnalysisPanel({ sentence, context, mediaId, positionSec }: Props) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [active, setActive] = useState<number | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [explainState, setExplainState] = useState<'idle' | 'loading' | 'error' | 'unconfigured'>('idle');
+  const [savedWords, setSavedWords] = useState<Set<string>>(new Set());
+  const [sentenceSaved, setSentenceSaved] = useState(false);
 
   useEffect(() => {
     setTokens([]); setActive(null); setExplanation(null); setExplainState('idle');
+    setSavedWords(new Set()); setSentenceSaved(false);
     if (!sentence) return;
     api.analyze(sentence).then((r) => setTokens(r.tokens)).catch(console.error);
   }, [sentence]);
+
+  async function saveWord(t: Token) {
+    if (!sentence) return;
+    await api.saveVocab({
+      kind: 'word', word: t.base, reading: t.reading, gloss: t.glosses[0]?.gloss,
+      sentence, mediaId, positionSec,
+    }).catch(console.error);
+    setSavedWords((s) => new Set(s).add(t.base));
+  }
+
+  async function saveSentence() {
+    if (!sentence) return;
+    await api.saveVocab({
+      kind: 'sentence', sentence, translation: explanation?.translation,
+      mediaId, positionSec,
+    }).catch(console.error);
+    setSentenceSaved(true);
+  }
 
   // D キーで深掘り解説
   useEffect(() => {
@@ -83,6 +106,14 @@ export default function AnalysisPanel({ sentence, context }: Props) {
             <b>{activeToken.base}</b>
             <span className="reading">{activeToken.reading}</span>
             <span className="pos-tag">{activeToken.pos}{activeToken.posDetail && `・${activeToken.posDetail}`}</span>
+            <button
+              className="star-btn"
+              disabled={savedWords.has(activeToken.base)}
+              onClick={() => saveWord(activeToken)}
+              title="単語帳に保存"
+            >
+              {savedWords.has(activeToken.base) ? '★ 保存済み' : '☆ 保存'}
+            </button>
           </div>
           {activeToken.surface !== activeToken.base && (
             <div className="conj">活用形: {activeToken.surface} → {activeToken.base}</div>
@@ -114,7 +145,9 @@ export default function AnalysisPanel({ sentence, context }: Props) {
         )}
       </div>
 
-      <button className="fav-btn" disabled title="第二版で実装予定">☆ この文を保存（近日公開）</button>
+      <button className="fav-btn" disabled={sentenceSaved} onClick={saveSentence}>
+        {sentenceSaved ? '★ 保存しました' : '☆ この文を保存'}
+      </button>
     </div>
   );
 }

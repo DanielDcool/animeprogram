@@ -8,7 +8,7 @@ describe('createDb', () => {
       .prepare(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
       .all()
       .map((r: any) => r.name);
-    for (const t of ['media', 'subtitle_file', 'progress', 'explain_cache', 'settings', 'dict', 'jimaku_mapping']) {
+    for (const t of ['media', 'subtitle_file', 'progress', 'explain_cache', 'settings', 'dict', 'jimaku_mapping', 'vocab']) {
       expect(names).toContain(t);
     }
   });

@@ -129,6 +129,8 @@ export default function PlayerPage() {
           <AnalysisPanel
             sentence={learn.paused && cue ? cue.text : null}
             context={cueIdx >= 0 ? cues.slice(Math.max(0, cueIdx - 2), cueIdx + 3).map((c) => c.text) : []}
+            mediaId={mediaId}
+            positionSec={cue?.start ?? time}
           />
         )}
       </aside>

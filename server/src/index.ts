@@ -9,6 +9,7 @@ import { analyzeRoutes } from './modules/analyze/routes.js';
 import { aiRoutes } from './modules/ai/routes.js';
 import { miscRoutes } from './modules/misc/routes.js';
 import { jimakuRoutes } from './modules/jimaku/routes.js';
+import { vocabRoutes } from './modules/vocab/routes.js';
 
 declare module 'fastify' {
   interface FastifyInstance { db: import('./db.js').Db }
@@ -27,6 +28,7 @@ export async function buildApp() {
   await app.register(aiRoutes, { db });
   await app.register(miscRoutes, { db });
   await app.register(jimakuRoutes, { db });
+  await app.register(vocabRoutes, { db });
   return app;
 }
 
