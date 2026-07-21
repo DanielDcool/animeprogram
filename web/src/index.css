@@ -1,0 +1,33 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "Hiragino Sans", sans-serif; background: #16161a; color: #eee; }
+a { color: #7cc0ff; }
+.topnav { display: flex; gap: 16px; padding: 10px 16px; border-bottom: 1px solid #333; }
+.library { padding: 16px; max-width: 720px; }
+.media-list { list-style: none; padding: 0; }
+.media-list li { padding: 8px 0; border-bottom: 1px solid #2a2a2e; }
+.media-list em { color: #999; margin-left: 8px; font-style: normal; font-size: 0.85em; }
+button { background: #2a2a35; color: #eee; border: 1px solid #444; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+button:disabled { opacity: 0.5; }
+input { background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 6px 8px; }
+
+.player-page { display: grid; grid-template-columns: 1fr 380px; gap: 12px; padding: 12px; height: calc(100vh - 45px); }
+.player-main { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.video-wrap { position: relative; background: #000; }
+.video-wrap video { width: 100%; max-height: 70vh; display: block; }
+.subtitle-overlay {
+  position: absolute; bottom: 56px; left: 0; right: 0; text-align: center;
+  font-size: 26px; color: #fff; text-shadow: 0 0 6px #000, 0 0 2px #000; padding: 0 24px; pointer-events: none;
+}
+.hotkeys { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: #aaa; align-items: center; }
+.hotkeys b { color: #eee; }
+.warn { color: #f0a; }
+.analysis-panel { background: #1e1e24; border: 1px solid #333; border-radius: 8px; padding: 14px; overflow-y: auto; }
+.analysis-panel h2 { font-size: 15px; margin: 0 0 8px; color: #aaa; }
+.sentence { font-size: 18px; line-height: 1.8; margin-bottom: 12px; }
+.token-chip { display: inline-block; border: 1px solid #444; border-radius: 4px; padding: 1px 6px; margin: 2px; cursor: pointer; font-size: 14px; }
+.token-chip.active { background: #2a4a6a; border-color: #7cc0ff; }
+.gloss-box { border-top: 1px solid #333; padding-top: 8px; margin-top: 8px; font-size: 14px; }
+.gloss-box .reading { color: #999; margin-left: 6px; }
+.explain-box { border-top: 1px solid #333; margin-top: 12px; padding-top: 10px; font-size: 14px; line-height: 1.7; }
+.explain-box dt { color: #7cc0ff; margin-top: 8px; }
+.explain-box dd { margin: 2px 0 0 0; }

@@ -1,0 +1,9 @@
+{
+  "name": "animeprogram",
+  "private": true,
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "start": "npm run dev -w server & npm run dev -w web & wait",
+    "test": "npm test -w server && npm test -w web"
+  }
+}
