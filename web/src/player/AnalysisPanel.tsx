@@ -40,17 +40,16 @@ export default function AnalysisPanel({ sentence, context }: Props) {
 
   if (!sentence) {
     return (
-      <aside className="analysis-panel">
-        <h2>解析パネル</h2>
-        <p className="panel-idle">Space で一時停止すると、現在のセリフをここで解析します。<br />聞き取れるまでは字幕を見ない――それが上達のコツ。</p>
-      </aside>
+      <div className="panel-body">
+        <p className="panel-idle">Space で一時停止すると、現在のセリフをここで解析します。<br />聞き取れるまでは字幕を見ない――それが上達のコツ。<br />字幕一覧タブ（T）から好きな句を選んで解析もできます。</p>
+      </div>
     );
   }
 
   const activeToken = active != null ? tokens[active] : null;
 
   return (
-    <aside className="analysis-panel">
+    <div className="panel-body">
       <h2>現在のセリフ</h2>
 
       {/* 原句：選択中の語をハイライト */}
@@ -116,6 +115,6 @@ export default function AnalysisPanel({ sentence, context }: Props) {
       </div>
 
       <button className="fav-btn" disabled title="第二版で実装予定">☆ この文を保存（近日公開）</button>
-    </aside>
+    </div>
   );
 }

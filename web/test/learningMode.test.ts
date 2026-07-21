@@ -51,6 +51,19 @@ describe('reduce', () => {
     expect(effects).toEqual([{ type: 'seek', time: 1 }]);
   });
 
+  it('SELECT (transcript click) seeks, pauses and reveals', () => {
+    const { state, effects } = reduce(initialState, { type: 'SELECT', cueStart: 5 });
+    expect(state.paused).toBe(true);
+    expect(state.revealed).toBe(true);
+    expect(effects).toEqual([{ type: 'seek', time: 5 }, { type: 'pause' }]);
+  });
+
+  it('SELECT with no cue does nothing', () => {
+    const { state, effects } = reduce(initialState, { type: 'SELECT', cueStart: null });
+    expect(effects).toEqual([]);
+    expect(state).toEqual(initialState);
+  });
+
   it('TOGGLE_ALWAYS_ON flips subtitle-always-visible mode', () => {
     const { state } = reduce(initialState, { type: 'TOGGLE_ALWAYS_ON' });
     expect(state.alwaysOn).toBe(true);

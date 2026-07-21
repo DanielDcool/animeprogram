@@ -12,6 +12,7 @@ export type LearnAction =
   | { type: 'TOGGLE_PAUSE' }
   | { type: 'REPLAY'; cueStart: number | null }
   | { type: 'JUMP'; cueStart: number | null }
+  | { type: 'SELECT'; cueStart: number | null }   // 字幕一覧クリック：ジャンプ+一時停止+表示
   | { type: 'TOGGLE_ALWAYS_ON' }
   | { type: 'EXTERNAL_PLAY' }    // ネイティブコントロール操作
   | { type: 'EXTERNAL_PAUSE' };
@@ -33,6 +34,12 @@ export function reduce(state: LearnState, action: LearnAction): { state: LearnSt
     case 'JUMP':
       if (action.cueStart == null) return { state, effects: [] };
       return { state, effects: [{ type: 'seek', time: action.cueStart }] };
+    case 'SELECT':
+      if (action.cueStart == null) return { state, effects: [] };
+      return {
+        state: { ...state, paused: true, revealed: true },
+        effects: [{ type: 'seek', time: action.cueStart }, { type: 'pause' }],
+      };
     case 'TOGGLE_ALWAYS_ON':
       return { state: { ...state, alwaysOn: !state.alwaysOn }, effects: [] };
     case 'EXTERNAL_PLAY':

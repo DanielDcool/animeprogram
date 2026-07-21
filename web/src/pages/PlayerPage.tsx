@@ -5,6 +5,7 @@ import type { SubtitleData } from '../types';
 import { initialState, reduce, currentCueIndex, type LearnState, type LearnAction, type Effect } from '../player/learningMode';
 import SubtitleOverlay from '../player/SubtitleOverlay';
 import AnalysisPanel from '../player/AnalysisPanel';
+import TranscriptList from '../player/TranscriptList';
 
 export default function PlayerPage() {
   const { id } = useParams();
@@ -14,6 +15,7 @@ export default function PlayerPage() {
   const [subError, setSubError] = useState(false);
   const [learn, setLearn] = useState<LearnState>(initialState);
   const [time, setTime] = useState(0);
+  const [panelMode, setPanelMode] = useState<'analysis' | 'transcript'>('analysis');
 
   useEffect(() => {
     api.subtitles(mediaId).then(setSubs).catch(() => setSubError(true));
@@ -51,6 +53,7 @@ export default function PlayerPage() {
         case 'ArrowLeft': e.preventDefault(); dispatch({ type: 'JUMP', cueStart: cueIdx > 0 ? cues[cueIdx - 1].start : null }); break;
         case 'ArrowRight': e.preventDefault(); dispatch({ type: 'JUMP', cueStart: cueIdx < cues.length - 1 ? cues[cueIdx + 1].start : null }); break;
         case 'KeyS': dispatch({ type: 'TOGGLE_ALWAYS_ON' }); break;
+        case 'KeyT': setPanelMode((m) => (m === 'analysis' ? 'transcript' : 'analysis')); break;
         case 'BracketLeft': adjustOffset(-100); break;
         case 'BracketRight': adjustOffset(+100); break;
       }
@@ -102,15 +105,33 @@ export default function PlayerPage() {
           <span className="key-chip"><b>←/→</b>上一句/下一句</span>
           <span className="key-chip"><b>D</b>AI 深度讲解</span>
           <span className="key-chip"><b>S</b>字幕常显 {learn.alwaysOn ? <span className="on">ON</span> : 'OFF'}</span>
+          <span className="key-chip"><b>T</b>字幕一覧</span>
           <span className="key-chip"><b>[ ]</b>偏移 {subs ? `${subs.offsetMs}ms` : '—'}</span>
           <Link to="/">← ライブラリ</Link>
         </div>
         {subError && <p className="warn">この動画に字幕がありません。学習モードは使えません。</p>}
       </div>
-      <AnalysisPanel
-        sentence={learn.paused && cue ? cue.text : null}
-        context={cueIdx >= 0 ? cues.slice(Math.max(0, cueIdx - 2), cueIdx + 3).map((c) => c.text) : []}
-      />
+      <aside className="analysis-panel">
+        <div className="panel-tabs">
+          <button className={`tab${panelMode === 'analysis' ? ' active' : ''}`} onClick={() => setPanelMode('analysis')}>解析</button>
+          <button className={`tab${panelMode === 'transcript' ? ' active' : ''}`} onClick={() => setPanelMode('transcript')}>字幕一覧</button>
+        </div>
+        {panelMode === 'transcript' ? (
+          <TranscriptList
+            cues={cues}
+            currentIdx={cueIdx}
+            onSelect={(i) => {
+              dispatch({ type: 'SELECT', cueStart: cues[i].start });
+              setPanelMode('analysis');
+            }}
+          />
+        ) : (
+          <AnalysisPanel
+            sentence={learn.paused && cue ? cue.text : null}
+            context={cueIdx >= 0 ? cues.slice(Math.max(0, cueIdx - 2), cueIdx + 3).map((c) => c.text) : []}
+          />
+        )}
+      </aside>
     </main>
   );
 }

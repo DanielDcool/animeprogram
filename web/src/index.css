@@ -69,8 +69,26 @@ input:focus { outline: none; border-color: var(--accent); }
 /* ---- 右侧分析面板 ---- */
 .analysis-panel {
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-  padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0;
 }
+.panel-body { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; min-height: 0; }
+
+.panel-tabs { display: flex; gap: 6px; flex-shrink: 0; }
+.panel-tabs .tab {
+  flex: 1; padding: 5px 0; font-size: 13px; border-radius: 7px;
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+}
+.panel-tabs .tab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+
+.transcript { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
+.transcript li {
+  display: flex; gap: 10px; padding: 7px 8px; border-radius: 6px;
+  cursor: pointer; font-size: 14px; line-height: 1.65;
+}
+.transcript li:hover { background: var(--surface-2); }
+.transcript li.current { background: var(--accent-bg); }
+.transcript li.current span:last-child { color: var(--accent); }
+.transcript .t { color: var(--text-muted); font-size: 12px; min-width: 36px; padding-top: 2px; flex-shrink: 0; }
 .analysis-panel h2 {
   font-size: 12px; margin: 0; color: var(--text-muted);
   text-transform: none; letter-spacing: 0.04em; font-weight: 600;
