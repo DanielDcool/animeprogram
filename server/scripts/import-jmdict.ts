@@ -4,12 +4,8 @@
 //   3. npm run import-jmdict -w server
 import fs from 'node:fs';
 import path from 'node:path';
-import { chain } from 'stream-chain';
-import { parser } from 'stream-json';
-import { pick } from 'stream-json/filters/Pick.js';
-import { streamArray } from 'stream-json/streamers/StreamArray.js';
 import { createDb } from '../src/db.js';
-import { insertEntry } from '../src/modules/analyze/dictionary.js';
+import { importJmdict } from '../src/modules/analyze/jmdict-import.js';
 import { config } from '../src/config.js';
 
 const src = path.join(import.meta.dirname, '..', 'vendor', 'jmdict-eng.json');
@@ -19,32 +15,5 @@ if (!fs.existsSync(src)) {
 }
 
 const db = createDb(path.join(config.dataDir, 'library.db'));
-db.exec('DELETE FROM dict');
-let count = 0;
-
-const pipeline = chain([
-  fs.createReadStream(src),
-  parser(),
-  pick({ filter: 'words' }),
-  streamArray(),
-]);
-
-const insertMany = db.transaction((entries: any[]) => {
-  for (const e of entries) {
-    insertEntry(db, {
-      kanji: e.kanji.map((k: any) => k.text),
-      kana: e.kana.map((k: any) => k.text),
-      gloss: e.sense.flatMap((s: any) => s.gloss.map((g: any) => g.text)).slice(0, 6),
-    });
-  }
-});
-
-let batch: any[] = [];
-pipeline.on('data', ({ value }: { value: any }) => {
-  batch.push(value);
-  if (batch.length >= 5000) { insertMany(batch); count += batch.length; batch = []; }
-});
-pipeline.on('end', () => {
-  insertMany(batch); count += batch.length;
-  console.log(`imported ${count} entries`);
-});
+const count = await importJmdict(db, fs.createReadStream(src));
+console.log(`imported ${count} entries`);

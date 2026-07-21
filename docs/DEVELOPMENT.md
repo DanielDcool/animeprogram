@@ -35,7 +35,8 @@ server/src/
     media/     filename.ts(文件名→series/episode) ffmpeg.ts(probe/remux命令,纯函数+执行分离)
                scanner.ts(扫描导入,FfmpegOps 依赖注入) routes.ts(列表/scan/Range流)
     subtitle/  parser.ts(srt+ass→Cue{start,end,text}) routes.ts(句子列表+偏移)
-    analyze/   tokenizer.ts(kuromoji惰性单例) dictionary.ts(JMdict查词) routes.ts(/api/analyze)
+    analyze/   tokenizer.ts(kuromoji惰性单例) dictionary.ts(JMdict查词)
+               jmdict-import.ts(流式导入) routes.ts(/api/analyze)
     ai/        explain.ts(Claude API, structured outputs) routes.ts(/api/explain, SQLite缓存)
     jimaku/    client.ts(jimaku.cc API + pickBestFile) routes.ts(candidates/download)
     vocab/     routes.ts(收藏 CRUD + TSV 导出)
@@ -67,7 +68,9 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 
 - jimaku 用真实 key 联调通过：《葬送のフリーレン》第 1 话字幕真实下载并解析出 265 句；测试媒体已清理，系列映射保留。
 - 生词本在浏览器中完成“收藏单词 + 收藏句子 → 列表展示 → TSV 导出”链路；演示数据已清理。
-- 自动测试基线为 server 54 个、web 10 个；后续以实际 `npm test` 输出为准，不要只依赖这个数字。
+- JMdict Simplified 英文版 `3.6.2+20260720135044` 已导入：读取 217,974 个词条，SQLite 展开为 273,435 行；
+  导入脚本已适配 `stream-json 3.5.0` 的 ESM 路径，并有微型 JSON 回归测试。
+- 自动测试基线为 server 55 个、web 10 个；后续以实际 `npm test` 输出为准，不要只依赖这个数字。
 
 ## 4. 关键决策记录（为什么这么做）
 
@@ -85,7 +88,6 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 - jimaku_mapping.entry_name 存的是 ID 字符串而非作品名（仅备注字段，不影响功能，顺手可修）
 - 视频自然播完时面板行为、原生控制条 Space 与快捷键 Space 可能双触发（实测未出问题，留意）
 - 「続き」需 positionSec>30 才显示；播放页尚无「从头开始/继续」选择
-- 词典未导入时词卡只有变形还原没有释义（用户侧操作，README 步骤 3）
 - 转码兜底（H.265 源后台转码）未做，当前只提示换源
 
 ## 6. 下一步路线图
@@ -121,7 +123,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 ## 7. 开发约定
 
 - **TDD**：纯逻辑（解析、状态机、文件挑选、路由）先写 vitest 测试；外部依赖（ffmpeg/jimaku/Claude）
-  全部依赖注入 fake。跑法：`npm test`（server 54 + web 10，改完必须全绿）。
+  全部依赖注入 fake。跑法：`npm test`（当前 server 55 + web 10，改完必须全绿）。
 - **模块模式**：新功能 = `server/src/modules/<name>/routes.ts`（Fastify plugin，opts 传 db 和可注入依赖）
   + `index.ts` 注册 + `web/src/api.ts` 加方法。别在组件里直接 fetch。
 - **UI**：颜色只用 index.css `:root` 变量；日文 UI 文案；学习模式相关逻辑进 learningMode.ts reducer（保持可测）。
