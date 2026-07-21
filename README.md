@@ -35,6 +35,12 @@ npm start
 | S | 字幕常显开关（普通看番模式）|
 | [ / ] | 字幕偏移 ±100ms（持久保存）|
 
+## 生词本
+
+暂停解析时：词卡里点「☆ 保存」收藏单词（辞书形+读音+释义+例句），面板底部「☆ この文を保存」收藏整句
+（若已生成 AI 讲解会连中文翻译一起存）。顶部「単語帳」页面查看/删除，
+「Anki 用 TSV エクスポート」下载 vocab.tsv → Anki 里 文件→读入（分隔符 Tab、允许 HTML）即可变卡片。
+
 ## 技术要点
 
 - `server/`：Fastify + better-sqlite3 + kuromoji + JMdict + Claude API（claude-opus-4-8）
