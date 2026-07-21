@@ -82,6 +82,9 @@ export default function PlayerPage() {
     <main className="player-page">
       <div className="player-main">
         <div className="video-wrap">
+          <span className="mode-badge">
+            {learn.alwaysOn ? '字幕常時ON' : learn.revealed ? '学習モード・一時停止で字幕表示中' : '学習モード・字幕OFF'}
+          </span>
           <video
             ref={videoRef}
             src={`/api/media/${mediaId}/stream`}
@@ -94,11 +97,12 @@ export default function PlayerPage() {
           <SubtitleOverlay text={cue?.text ?? null} visible={subtitleVisible} />
         </div>
         <div className="hotkeys">
-          <span><b>Space</b> 暂停+显示字幕</span>
-          <span><b>A</b> 回到本句重听</span>
-          <span><b>←/→</b> 上一句/下一句</span>
-          <span><b>S</b> 字幕常显 {learn.alwaysOn ? 'ON' : 'OFF'}</span>
-          <span><b>[ ]</b> 字幕偏移 {subs ? `${subs.offsetMs}ms` : ''}</span>
+          <span className="key-chip"><b>Space</b>暂停+显示字幕</span>
+          <span className="key-chip"><b>A</b>回到本句重听</span>
+          <span className="key-chip"><b>←/→</b>上一句/下一句</span>
+          <span className="key-chip"><b>D</b>AI 深度讲解</span>
+          <span className="key-chip"><b>S</b>字幕常显 {learn.alwaysOn ? <span className="on">ON</span> : 'OFF'}</span>
+          <span className="key-chip"><b>[ ]</b>偏移 {subs ? `${subs.offsetMs}ms` : '—'}</span>
           <Link to="/">← ライブラリ</Link>
         </div>
         {subError && <p className="warn">この動画に字幕がありません。学習モードは使えません。</p>}

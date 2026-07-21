@@ -42,7 +42,7 @@ export default function AnalysisPanel({ sentence, context }: Props) {
     return (
       <aside className="analysis-panel">
         <h2>解析パネル</h2>
-        <p style={{ color: '#777' }}>Space で一時停止すると、現在のセリフを解析します。</p>
+        <p className="panel-idle">Space で一時停止すると、現在のセリフをここで解析します。<br />聞き取れるまでは字幕を見ない――それが上達のコツ。</p>
       </aside>
     );
   }
@@ -52,12 +52,20 @@ export default function AnalysisPanel({ sentence, context }: Props) {
   return (
     <aside className="analysis-panel">
       <h2>現在のセリフ</h2>
-      <div className="sentence">{sentence}</div>
 
-      <div>
+      {/* 原句：選択中の語をハイライト */}
+      <div className="sentence">
+        {tokens.length > 0
+          ? tokens.map((t, i) => (
+              <span key={i} className={active === i ? 'hl' : ''}>{t.surface}</span>
+            ))
+          : sentence}
+      </div>
+
+      <div className="token-row">
         {tokens.map((t, i) =>
           t.pos === '記号' ? (
-            <span key={i}>{t.surface}</span>
+            <span key={i} className="token-punct">{t.surface}</span>
           ) : (
             <span
               key={i}
@@ -72,19 +80,22 @@ export default function AnalysisPanel({ sentence, context }: Props) {
 
       {activeToken && (
         <div className="gloss-box">
-          <div>
+          <div className="head">
             <b>{activeToken.base}</b>
             <span className="reading">{activeToken.reading}</span>
-            <span className="reading">［{activeToken.pos}{activeToken.posDetail && `・${activeToken.posDetail}`}］</span>
+            <span className="pos-tag">{activeToken.pos}{activeToken.posDetail && `・${activeToken.posDetail}`}</span>
           </div>
-          {activeToken.surface !== activeToken.base && <div className="reading">活用形: {activeToken.surface} → {activeToken.base}</div>}
+          {activeToken.surface !== activeToken.base && (
+            <div className="conj">活用形: {activeToken.surface} → {activeToken.base}</div>
+          )}
           {activeToken.glosses.length > 0
-            ? activeToken.glosses.map((g, i) => <div key={i}>{g.gloss}</div>)
-            : <div className="reading">辞書に見つかりません</div>}
+            ? activeToken.glosses.map((g, i) => <div key={i} className="meaning">{g.gloss}</div>)
+            : <div className="none">辞書に見つかりません</div>}
         </div>
       )}
 
       <div className="explain-box">
+        <div className="ai-label">AI 講解（D で生成）</div>
         {explanation ? (
           <dl>
             <dt>翻訳</dt><dd>{explanation.translation}</dd>
@@ -94,15 +105,17 @@ export default function AnalysisPanel({ sentence, context }: Props) {
             <dt>ニュアンス</dt><dd>{explanation.nuance}</dd>
           </dl>
         ) : explainState === 'loading' ? (
-          <p>AI 解説を生成中…</p>
+          <p className="hint">AI 解説を生成中…</p>
         ) : explainState === 'unconfigured' ? (
-          <p>API キー未設定。設定ページで Anthropic API キーを入れてください。</p>
+          <p className="hint">API キー未設定。設定ページで Anthropic API キーを入れてください。</p>
         ) : explainState === 'error' ? (
-          <p>AI 解説に失敗しました。<button onClick={requestExplain}>再試行</button></p>
+          <p className="hint">AI 解説に失敗しました。<button onClick={requestExplain}>再試行</button></p>
         ) : (
-          <button onClick={requestExplain}>AI 深度講解（D）</button>
+          <button onClick={requestExplain}>この文を AI で深掘りする</button>
         )}
       </div>
+
+      <button className="fav-btn" disabled title="第二版で実装予定">☆ この文を保存（近日公開）</button>
     </aside>
   );
 }
