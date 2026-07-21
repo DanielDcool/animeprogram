@@ -21,6 +21,13 @@ a:hover { text-decoration: underline; }
 .media-list { list-style: none; padding: 0; }
 .media-list li { padding: 12px 4px; border-bottom: 1px solid #2a2a2e; font-size: 15px; }
 .media-list em { color: var(--text-muted); margin-left: 10px; font-style: normal; font-size: 0.85em; }
+.media-row { display: flex; align-items: center; gap: 8px; }
+.media-row .sub-btn { margin-left: auto; font-size: 12px; padding: 4px 10px; flex-shrink: 0; }
+.sub-msg { color: var(--text-muted); font-size: 13px; margin: 6px 0 0; }
+.candidates { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.candidate { text-align: left; font-size: 13px; padding: 6px 10px; }
+.candidate .cand-sub { color: var(--text-muted); margin-left: 8px; }
+.candidate.cancel { color: var(--text-muted); border-style: dashed; }
 button {
   background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);
   padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: 14px;

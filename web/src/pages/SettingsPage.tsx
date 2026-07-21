@@ -4,18 +4,27 @@ import { api } from '../api';
 export default function SettingsPage() {
   const [keySet, setKeySet] = useState(false);
   const [apiKey, setApiKey] = useState('');
+  const [jimakuKeySet, setJimakuKeySet] = useState(false);
+  const [jimakuKey, setJimakuKey] = useState('');
   const [model, setModel] = useState('claude-opus-4-8');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    api.getSettings().then((s) => { setKeySet(s.anthropic_api_key_set); setModel(s.ai_model); });
+    api.getSettings().then((s) => {
+      setKeySet(s.anthropic_api_key_set);
+      setJimakuKeySet(s.jimaku_api_key_set);
+      setModel(s.ai_model);
+    });
   }, []);
 
   async function save() {
     const payload: Record<string, string> = { ai_model: model };
     if (apiKey) payload.anthropic_api_key = apiKey;
+    if (jimakuKey) payload.jimaku_api_key = jimakuKey;
     await api.saveSettings(payload);
-    setSaved(true); setKeySet(keySet || apiKey !== ''); setApiKey('');
+    setSaved(true);
+    setKeySet(keySet || apiKey !== ''); setApiKey('');
+    setJimakuKeySet(jimakuKeySet || jimakuKey !== ''); setJimakuKey('');
     setTimeout(() => setSaved(false), 2000);
   }
 
@@ -25,6 +34,11 @@ export default function SettingsPage() {
       <p>
         <label>Anthropic API キー {keySet && '（設定済み）'}<br />
           <input type="password" value={apiKey} placeholder={keySet ? '変更する場合のみ入力' : 'sk-ant-...'} onChange={(e) => setApiKey(e.target.value)} style={{ width: 360 }} />
+        </label>
+      </p>
+      <p>
+        <label>jimaku API キー {jimakuKeySet && '（設定済み）'}<br />
+          <input type="password" value={jimakuKey} placeholder={jimakuKeySet ? '変更する場合のみ入力' : 'https://jimaku.cc/profile で取得'} onChange={(e) => setJimakuKey(e.target.value)} style={{ width: 360 }} />
         </label>
       </p>
       <p>

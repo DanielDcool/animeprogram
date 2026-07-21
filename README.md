@@ -13,6 +13,9 @@
    ```
 4. 视频与字幕放入 `~/AnimeLibrary`（mkv/mp4 + 同名 `.srt`/`.ass`，`Show - 01.ja.srt` 形式也可；
    没有外部字幕时会自动抽取 mkv 内嵌日语字幕）
+5. jimaku 字幕自动匹配（可选）：在 https://jimaku.cc 注册 → https://jimaku.cc/profile 复制 API key
+   → 填入设置页。之后媒体库里点「字幕を探す」即可：首次为每部番选一次对应作品，
+   之后同系列自动按集数下载（优先 .srt）。已有字幕的条目也可点「↺ 字幕」重新拉取。
 
 ## 启动
 
@@ -41,4 +44,4 @@ npm start
 
 ## 第二版计划
 
-jimaku.cc 字幕自动匹配 → nyaa 搜索下载 → 生词本/Anki 导出。
+~~jimaku.cc 字幕自动匹配~~（已完成）→ 生词本/Anki 导出 → nyaa 搜索下载。

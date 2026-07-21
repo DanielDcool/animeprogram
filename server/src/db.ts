@@ -41,6 +41,11 @@ export function createDb(file: string): Db {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS jimaku_mapping (
+      series TEXT PRIMARY KEY,
+      entry_id INTEGER NOT NULL,
+      entry_name TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS dict (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       kanji TEXT,

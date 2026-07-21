@@ -17,7 +17,12 @@ export const api = {
     fetch('/api/explain', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, context }) }).then((r) => j<{ cached: boolean; explanation: Explanation }>(r)),
   saveProgress: (id: number, positionSec: number) =>
     fetch(`/api/media/${id}/progress`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ positionSec }) }),
-  getSettings: () => fetch('/api/settings').then((r) => j<{ ai_model: string; anthropic_api_key_set: boolean }>(r)),
+  jimakuCandidates: (id: number) =>
+    fetch(`/api/media/${id}/jimaku/candidates`).then((r) =>
+      j<{ mappingEntryId: number | null; candidates: { id: number; name: string; englishName: string | null; japaneseName: string | null }[] }>(r)),
+  jimakuDownload: (id: number, entryId?: number) =>
+    fetch(`/api/media/${id}/jimaku/download`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(entryId != null ? { entryId } : {}) }).then((r) => j<{ ok: true; file: string }>(r)),
+  getSettings: () => fetch('/api/settings').then((r) => j<{ ai_model: string; anthropic_api_key_set: boolean; jimaku_api_key_set: boolean }>(r)),
   saveSettings: (s: Record<string, string>) =>
     fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(s) }).then((r) => j(r)),
 };

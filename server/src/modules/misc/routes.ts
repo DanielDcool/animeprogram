@@ -18,10 +18,11 @@ export async function miscRoutes(app: FastifyInstance, opts: { db: Db }) {
   app.get('/api/settings', async () => ({
     ai_model: getSetting(db, 'ai_model') ?? 'claude-opus-4-8',
     anthropic_api_key_set: getSetting(db, 'anthropic_api_key') != null,
+    jimaku_api_key_set: getSetting(db, 'jimaku_api_key') != null,
   }));
 
   app.put<{ Body: Record<string, string> }>('/api/settings', async (req) => {
-    for (const key of ['anthropic_api_key', 'ai_model'] as const) {
+    for (const key of ['anthropic_api_key', 'ai_model', 'jimaku_api_key'] as const) {
       const v = req.body?.[key];
       if (typeof v === 'string' && v !== '') setSetting(db, key, v);
     }
