@@ -1,6 +1,7 @@
-# アニメ学習プレイヤー
+# ことばアニメ
 
-看番学日语的本地播放器：默认隐藏字幕，暂停显示当前句并做分词/查词/AI 语法讲解。
+从“这季看什么”到“用这一句学什么”的本地动画网站：实时浏览当季/上季新番、搜索作品和官方播放入口，
+再用本地播放器隐藏字幕观看；暂停时显示当前句并做分词、查词、AI 语法讲解。
 
 ## 准备
 
@@ -22,7 +23,13 @@
 ```bash
 npm start
 ```
-浏览器打开 http://localhost:5173 → 点「フォルダをスキャン」导入（mkv 会自动 remux 成 mp4，秒级）。
+浏览器打开 http://localhost:5173：
+
+- 「見つける」显示当前季、上一季与“今季首先看 3 部”，也可按日文、罗马字或英文名搜索。
+- 作品详情列出 AniList 收录的官方播放/官网入口；外部服务能否在所在地区播放，以服务页面为准。
+- 「ライブラリ」→「フォルダをスキャン」导入本地视频（mkv 会自动 remux 成 mp4，秒级）。
+
+新番目录需要联网访问 AniList；即使 AniList 暂时不可用，本地媒体库、播放器和生词本仍能继续使用。
 
 ## 快捷键（播放页）
 
@@ -44,12 +51,14 @@ npm start
 
 ## 技术要点
 
-- `server/`：Fastify + better-sqlite3 + kuromoji + JMdict + Claude API（claude-opus-4-8）
+- `server/`：Fastify + better-sqlite3 + kuromoji + JMdict + AniList GraphQL + Claude API（claude-opus-4-8）
 - `web/`：Vite + React，学习模式状态机是纯 reducer（`web/src/player/learningMode.ts`）
 - H.265/10bit 源浏览器无法播放，媒体库会标记「要トランスコード」，建议换 H.264 源
 - 测试：`npm test`
 - AI 协作与开发上下文：先读 `AGENTS.md` 和 `docs/DEVELOPMENT.md`
 
-## 第二版计划
+## 资源边界与后续
 
-~~jimaku.cc 字幕自动匹配~~ → ~~生词本/Anki TSV 导出~~ → nyaa 搜索下载（未开始，开工前先确认设计）。
+应用当前只展示 AniList 标记的 HTTPS 官方播放/官网链接；不会聚合盗版播放页、磁力链接或不明下载文件。
+合法取得的视频仍统一放入 `~/AnimeLibrary`，字幕可由 jimaku 自动匹配。应用内资源下载器尚未实现，
+开工前需先确认合法数据源、下载方式和暂停/恢复/做种等生命周期设计。
