@@ -32,3 +32,33 @@ export interface Explanation {
   expressions: { expression: string; meaning: string }[];
   nuance: string;
 }
+
+export type SeasonName = 'WINTER' | 'SPRING' | 'SUMMER' | 'FALL';
+export interface SeasonRef { year: number; season: SeasonName }
+export interface CatalogLink { site: string; url: string; type: 'STREAMING' | 'INFO' }
+export interface CatalogAnime {
+  id: number;
+  title: string;
+  titleRomaji: string;
+  titleEnglish: string | null;
+  titleNative: string | null;
+  coverImage: string | null;
+  bannerImage: string | null;
+  description: string;
+  genres: string[];
+  score: number | null;
+  popularity: number;
+  episodes: number | null;
+  status: string;
+  format: string | null;
+  startDate: string | null;
+  studio: string | null;
+  links: CatalogLink[];
+  recommendation?: { badge: string; reason: string };
+}
+export interface CatalogSeason extends SeasonRef { items: CatalogAnime[] }
+export interface CatalogHome {
+  current: CatalogSeason;
+  previous: CatalogSeason;
+  featured: CatalogAnime[];
+}

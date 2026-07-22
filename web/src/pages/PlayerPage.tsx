@@ -107,7 +107,7 @@ export default function PlayerPage() {
           <span className="key-chip"><b>S</b>字幕常显 {learn.alwaysOn ? <span className="on">ON</span> : 'OFF'}</span>
           <span className="key-chip"><b>T</b>字幕一覧</span>
           <span className="key-chip"><b>[ ]</b>偏移 {subs ? `${subs.offsetMs}ms` : '—'}</span>
-          <Link to="/">← ライブラリ</Link>
+          <Link to="/library">← ライブラリ</Link>
         </div>
         {subError && <p className="warn">この動画に字幕がありません。学習モードは使えません。</p>}
       </div>

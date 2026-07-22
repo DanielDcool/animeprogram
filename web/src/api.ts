@@ -1,4 +1,4 @@
-import type { MediaItem, SubtitleData, Token, Explanation, VocabItem } from './types';
+import type { CatalogAnime, CatalogHome, MediaItem, SubtitleData, Token, Explanation, VocabItem } from './types';
 
 async function j<T>(res: Response): Promise<T> {
   if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status, body: await res.json().catch(() => null) });
@@ -32,4 +32,8 @@ export const api = {
   getSettings: () => fetch('/api/settings').then((r) => j<{ ai_model: string; anthropic_api_key_set: boolean; jimaku_api_key_set: boolean }>(r)),
   saveSettings: (s: Record<string, string>) =>
     fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(s) }).then((r) => j(r)),
+  catalogHome: () => fetch('/api/catalog/home').then((r) => j<CatalogHome>(r)),
+  catalogSearch: (query: string) =>
+    fetch(`/api/catalog/search?q=${encodeURIComponent(query)}`).then((r) => j<{ items: CatalogAnime[] }>(r)),
+  catalogDetail: (id: number) => fetch(`/api/catalog/anime/${id}`).then((r) => j<CatalogAnime>(r)),
 };
