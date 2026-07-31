@@ -22,6 +22,11 @@ export const realOps: FfmpegOps = {
 const VIDEO_EXT = new Set(['.mkv', '.mp4']);
 const SUB_EXT = new Set(['.srt', '.ass']);
 
+export interface ScanResult {
+  importedIds: number[];
+  failedFiles: string[];
+}
+
 function findExternalSub(dir: string, videoBase: string): string | null {
   const entries = fs.readdirSync(dir);
   for (const e of entries) {
@@ -34,15 +39,49 @@ function findExternalSub(dir: string, videoBase: string): string | null {
   return null;
 }
 
-export async function scanLibrary(db: Db, mediaDir: string, ops: FfmpegOps = realOps): Promise<void> {
-  fs.mkdirSync(mediaDir, { recursive: true });
-  const files = fs.readdirSync(mediaDir).filter((f) => VIDEO_EXT.has(path.extname(f).toLowerCase()));
+export function listSourceVideos(mediaDir: string): string[] {
+  const files: string[] = [];
+  const visit = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        visit(full);
+      } else if (
+        entry.isFile()
+        && VIDEO_EXT.has(path.extname(entry.name).toLowerCase())
+        && !entry.name.toLowerCase().endsWith('.play.mp4')
+      ) {
+        files.push(full);
+      }
+    }
+  };
 
-  for (const file of files) {
+  fs.mkdirSync(mediaDir, { recursive: true });
+  visit(mediaDir);
+  return files;
+}
+
+export async function scanFiles(
+  db: Db,
+  mediaDir: string,
+  filePaths: string[],
+  ops: FfmpegOps = realOps,
+): Promise<ScanResult> {
+  const importedIds: number[] = [];
+  const failedFiles: string[] = [];
+  const root = path.resolve(mediaDir);
+
+  for (const filePath of filePaths) {
+    const full = path.resolve(filePath);
+    const relative = path.relative(root, full);
+    if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) continue;
+    const file = path.basename(full);
+    if (!VIDEO_EXT.has(path.extname(file).toLowerCase())) continue;
     if (file.endsWith('.play.mp4')) continue; // 自前で生成した再生用ファイル
-    const full = path.join(mediaDir, file);
-    const exists = db.prepare('SELECT id FROM media WHERE file_path=?').get(full);
-    if (exists) continue;
+    const existing = db.prepare('SELECT id, codec_status FROM media WHERE file_path=?').get(full) as
+      { id: number; codec_status: string } | undefined;
+    if (existing && existing.codec_status !== 'transcode_needed') continue;
 
     const ext = path.extname(file).toLowerCase();
     const { series, episode } = parseFilename(file);
@@ -51,8 +90,7 @@ export async function scanLibrary(db: Db, mediaDir: string, ops: FfmpegOps = rea
     try {
       probe = await ops.probe(full);
     } catch {
-      db.prepare(`INSERT INTO media (series, episode, file_path, codec_status) VALUES (?,?,?,?)`)
-        .run(series, episode, full, 'unknown');
+      failedFiles.push(full);
       continue;
     }
 
@@ -70,16 +108,26 @@ export async function scanLibrary(db: Db, mediaDir: string, ops: FfmpegOps = rea
       } catch {
         playablePath = null;
         status = 'transcode_needed';
+        failedFiles.push(full);
       }
+    }
+
+    if (existing) {
+      if (status === 'transcode_needed') continue;
+      db.prepare('UPDATE media SET playable_path=?, codec_status=? WHERE id=?')
+        .run(playablePath, status, existing.id);
+      importedIds.push(existing.id);
+      continue;
     }
 
     const info = db.prepare(`INSERT INTO media (series, episode, file_path, playable_path, codec_status) VALUES (?,?,?,?,?)`)
       .run(series, episode, full, playablePath, status);
     const mediaId = info.lastInsertRowid as number;
+    importedIds.push(Number(mediaId));
 
     // 字幕: 外部ファイル優先、なければ内蔵から抽出
     const videoBase = file.slice(0, -ext.length);
-    const external = findExternalSub(mediaDir, videoBase);
+    const external = findExternalSub(path.dirname(full), videoBase);
     if (external) {
       const fmt = path.extname(external).slice(1).toLowerCase();
       db.prepare(`INSERT INTO subtitle_file (media_id, file_path, format) VALUES (?,?,?)`).run(mediaId, external, fmt);
@@ -95,4 +143,10 @@ export async function scanLibrary(db: Db, mediaDir: string, ops: FfmpegOps = rea
       }
     }
   }
+
+  return { importedIds, failedFiles };
+}
+
+export async function scanLibrary(db: Db, mediaDir: string, ops: FfmpegOps = realOps): Promise<ScanResult> {
+  return scanFiles(db, mediaDir, listSourceVideos(mediaDir), ops);
 }

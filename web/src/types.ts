@@ -1,3 +1,5 @@
+export type SubtitleStatus = 'ready' | 'needs_mapping' | 'downloading' | 'failed';
+
 export interface MediaItem {
   id: number;
   series: string;
@@ -6,6 +8,8 @@ export interface MediaItem {
   playable: boolean;
   hasSubtitle: boolean;
   positionSec: number;
+  subtitleStatus: SubtitleStatus;
+  subtitleError: string | null;
 }
 export interface Cue { start: number; end: number; text: string }
 export interface SubtitleData { offsetMs: number; cues: Cue[] }
@@ -61,4 +65,31 @@ export interface CatalogHome {
   current: CatalogSeason;
   previous: CatalogSeason;
   featured: CatalogAnime[];
+}
+
+export type ResourceCategory = 'english' | 'raw' | 'all';
+export interface ResourceResult {
+  id: string;
+  title: string;
+  detailUrl: string;
+  magnet: string;
+  size: string;
+  sizeBytes: number | null;
+  seeders: number;
+  leechers: number;
+  downloads: number;
+  publishedAt: string | null;
+  trusted: boolean;
+  remake: boolean;
+  category: string;
+  releaseGroup: string | null;
+  resolution: '2160p' | '1080p' | '720p' | 'other' | null;
+  codec: 'H.264' | 'H.265' | 'AV1' | 'unknown';
+  needsTranscode: boolean;
+}
+export interface ResourceSearchResponse {
+  items: ResourceResult[];
+  query: string;
+  category: ResourceCategory;
+  externalSearchUrl: string;
 }

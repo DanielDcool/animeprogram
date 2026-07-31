@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import { createDb, setSetting, type Db } from '../src/db.js';
 import { pickBestFile, type JimakuClient, type JimakuFile } from '../src/modules/jimaku/client.js';
 import { jimakuRoutes } from '../src/modules/jimaku/routes.js';
+import { downloadJimakuSubtitle } from '../src/modules/jimaku/service.js';
 
 describe('pickBestFile', () => {
   const f = (name: string): JimakuFile => ({ url: `https://files/${name}`, name, size: 100 });
@@ -49,6 +50,55 @@ function makeApp(db: Db, client: JimakuClient) {
   return app;
 }
 
+describe('downloadJimakuSubtitle', () => {
+  it('downloads a subtitle without going through the HTTP route', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const id = seedMedia(db);
+
+    const result = await downloadJimakuSubtitle({
+      db,
+      mediaId: id,
+      entryId: 100,
+      clientFactory: () => fakeClient(),
+    });
+
+    expect(result.file).toBe('Test Show 02.srt');
+    expect(fs.existsSync(result.destination)).toBe(true);
+    expect(db.prepare('SELECT format FROM subtitle_file WHERE media_id=?').get(id)).toEqual({ format: 'srt' });
+  });
+
+  it('omits the episode filter for a fractional special episode', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jimaku-special-'));
+    const video = path.join(dir, 'Test Show - 17.5.mkv');
+    fs.writeFileSync(video, 'x');
+    const id = db.prepare(`
+      INSERT INTO media (series, episode, file_path) VALUES ('Test Show', 17.5, ?)
+    `).run(video).lastInsertRowid as number;
+    const client = fakeClient();
+
+    await downloadJimakuSubtitle({
+      db,
+      mediaId: id,
+      entryId: 300,
+      clientFactory: () => client,
+    });
+
+    expect(client.files).toHaveBeenCalledWith(300, null);
+  });
+
+  it('returns a stable error code when no entry was selected or mapped', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const id = seedMedia(db);
+
+    await expect(downloadJimakuSubtitle({ db, mediaId: id, clientFactory: () => fakeClient() }))
+      .rejects.toMatchObject({ code: 'NO_ENTRY', httpStatus: 400 });
+  });
+});
+
 describe('GET /api/media/:id/jimaku/candidates', () => {
   it('503 when api key not set', async () => {
     const db = createDb(':memory:');
@@ -68,6 +118,29 @@ describe('GET /api/media/:id/jimaku/candidates', () => {
     const body = res.json();
     expect(body.mappingEntryId).toBe(100);
     expect(body.candidates[0]).toMatchObject({ id: 100, name: 'Test Show' });
+  });
+
+  it('retries a dash-separated series with its short title when no candidate is found', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jimaku-title-'));
+    const video = path.join(dir, 'Mushoku Tensei - 01.mkv');
+    fs.writeFileSync(video, 'x');
+    const id = db.prepare(`
+      INSERT INTO media (series, episode, file_path)
+      VALUES ('Mushoku Tensei - Isekai Ittara Honki Dasu', 1, ?)
+    `).run(video).lastInsertRowid as number;
+    const client = fakeClient();
+    vi.mocked(client.search)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 300, name: 'Mushoku Tensei' }]);
+
+    const res = await makeApp(db, client).inject({ url: `/api/media/${id}/jimaku/candidates` });
+
+    expect(res.statusCode).toBe(200);
+    expect(client.search).toHaveBeenNthCalledWith(1, 'Mushoku Tensei - Isekai Ittara Honki Dasu');
+    expect(client.search).toHaveBeenNthCalledWith(2, 'Mushoku Tensei');
+    expect(res.json().candidates[0]).toMatchObject({ id: 300, name: 'Mushoku Tensei' });
   });
 });
 
@@ -111,6 +184,56 @@ describe('POST /api/media/:id/jimaku/download', () => {
     const subs = db.prepare('SELECT * FROM subtitle_file WHERE media_id=?').all(id) as any[];
     expect(subs).toHaveLength(1);
     expect(subs[0].format).toBe('srt');
+  });
+
+  it('clears an automatic failure state after a manual retry succeeds', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const id = seedMedia(db);
+    db.prepare(`INSERT INTO jimaku_mapping (series, entry_id, entry_name) VALUES ('Test Show', 100, 'Test Show')`).run();
+    db.prepare(`INSERT INTO subtitle_sync_state (media_id, status, error) VALUES (?, 'failed', 'old error')`).run(id);
+
+    const res = await makeApp(db, fakeClient()).inject({
+      method: 'POST', url: `/api/media/${id}/jimaku/download`, payload: {},
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(db.prepare('SELECT * FROM subtitle_sync_state WHERE media_id=?').get(id)).toBeUndefined();
+  });
+
+  it('stores a retryable state when a mapped manual download fails', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const id = seedMedia(db);
+    db.prepare(`INSERT INTO jimaku_mapping (series, entry_id, entry_name) VALUES ('Test Show', 100, 'Test Show')`).run();
+    const client = fakeClient();
+    vi.mocked(client.files).mockRejectedValue(new Error('upstream response'));
+
+    const res = await makeApp(db, client).inject({
+      method: 'POST', url: `/api/media/${id}/jimaku/download`, payload: {},
+    });
+
+    expect(res.statusCode).toBe(502);
+    expect(db.prepare('SELECT status, error FROM subtitle_sync_state WHERE media_id=?').get(id)).toEqual({
+      status: 'failed',
+      error: 'jimaku から字幕を取得できませんでした',
+    });
+  });
+
+  it('remembers a first-time selection even when its subtitle download fails', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const id = seedMedia(db);
+    const client = fakeClient();
+    vi.mocked(client.files).mockRejectedValue(new Error('upstream response'));
+
+    const res = await makeApp(db, client).inject({
+      method: 'POST', url: `/api/media/${id}/jimaku/download`, payload: { entryId: 100 },
+    });
+
+    expect(res.statusCode).toBe(502);
+    expect(db.prepare('SELECT entry_id FROM jimaku_mapping WHERE series=?').get('Test Show')).toEqual({ entry_id: 100 });
+    expect(db.prepare('SELECT status FROM subtitle_sync_state WHERE media_id=?').get(id)).toEqual({ status: 'failed' });
   });
 
   it('400 when no entryId and no mapping', async () => {

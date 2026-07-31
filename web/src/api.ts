@@ -1,4 +1,14 @@
-import type { CatalogAnime, CatalogHome, MediaItem, SubtitleData, Token, Explanation, VocabItem } from './types';
+import type {
+  CatalogAnime,
+  CatalogHome,
+  Explanation,
+  MediaItem,
+  ResourceCategory,
+  ResourceSearchResponse,
+  SubtitleData,
+  Token,
+  VocabItem,
+} from './types';
 
 async function j<T>(res: Response): Promise<T> {
   if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status, body: await res.json().catch(() => null) });
@@ -36,4 +46,7 @@ export const api = {
   catalogSearch: (query: string) =>
     fetch(`/api/catalog/search?q=${encodeURIComponent(query)}`).then((r) => j<{ items: CatalogAnime[] }>(r)),
   catalogDetail: (id: number) => fetch(`/api/catalog/anime/${id}`).then((r) => j<CatalogAnime>(r)),
+  catalogResources: (id: number, category: ResourceCategory) =>
+    fetch(`/api/catalog/anime/${id}/resources?category=${encodeURIComponent(category)}`)
+      .then((r) => j<ResourceSearchResponse>(r)),
 };

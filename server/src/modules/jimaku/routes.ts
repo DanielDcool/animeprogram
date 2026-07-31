@@ -1,8 +1,8 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { getSetting, type Db } from '../../db.js';
-import { createJimakuClient, pickBestFile, type JimakuClient } from './client.js';
+import { createJimakuClient, type JimakuClient, type JimakuEntry } from './client.js';
+import { downloadJimakuSubtitle, JimakuServiceError } from './service.js';
+import { clearSubtitleSyncState, sanitizeSyncError, setSubtitleSyncState } from './sync.js';
 
 interface Opts {
   db: Db;
@@ -32,7 +32,16 @@ export async function jimakuRoutes(app: FastifyInstance, opts: Opts) {
 
     const mapping = db.prepare('SELECT entry_id FROM jimaku_mapping WHERE series=?').get(media.series) as { entry_id: number } | undefined;
     try {
-      const candidates = await clientFactory(apiKey).search(media.series);
+      const client = clientFactory(apiKey);
+      const shortTitle = media.series.split(/\s+-\s+/, 1)[0].trim();
+      const queries = shortTitle && shortTitle !== media.series
+        ? [media.series, shortTitle]
+        : [media.series];
+      let candidates: JimakuEntry[] = [];
+      for (const query of queries) {
+        candidates = await client.search(query);
+        if (candidates.length > 0) break;
+      }
       return {
         mappingEntryId: mapping?.entry_id ?? null,
         candidates: candidates.slice(0, 8).map((c) => ({
@@ -40,48 +49,37 @@ export async function jimakuRoutes(app: FastifyInstance, opts: Opts) {
         })),
       };
     } catch (err: any) {
-      req.log.error(err);
-      return reply.code(502).send({ code: 'JIMAKU_ERROR', error: String(err?.message ?? err) });
+      req.log.error('jimaku candidate search failed');
+      return reply.code(502).send({ code: 'JIMAKU_ERROR', error: 'jimaku request failed' });
     }
   });
 
   app.post<{ Params: { id: string }; Body: { entryId?: number } }>(
     '/api/media/:id/jimaku/download',
     async (req, reply) => {
-      const { media, apiKey } = requireSetup(req.params.id);
-      if (!media) return reply.code(404).send({ error: 'media not found' });
-      if (!apiKey) return reply.code(503).send({ code: 'JIMAKU_NOT_CONFIGURED', error: 'jimaku API key not set (settings page)' });
-
-      const mapping = db.prepare('SELECT entry_id, entry_name FROM jimaku_mapping WHERE series=?').get(media.series) as { entry_id: number; entry_name: string } | undefined;
-      const entryId = req.body?.entryId ?? mapping?.entry_id;
-      if (entryId == null) return reply.code(400).send({ code: 'NO_ENTRY', error: 'pick a jimaku entry first' });
-
-      const client = clientFactory(apiKey);
       try {
-        const files = await client.files(entryId, media.episode);
-        const best = pickBestFile(files);
-        if (!best) {
-          return reply.code(404).send({ code: 'NO_FILE', error: '単話の字幕ファイルが見つかりません（アーカイブのみの可能性。jimaku で手動確認を）' });
+        const result = await downloadJimakuSubtitle({
+          db,
+          mediaId: Number(req.params.id),
+          entryId: req.body?.entryId,
+          clientFactory,
+        });
+        clearSubtitleSyncState(db, Number(req.params.id));
+        return { ok: true, file: result.file };
+      } catch (error) {
+        const err = error instanceof JimakuServiceError
+          ? error
+          : new JimakuServiceError('JIMAKU_ERROR', 502, 'jimaku request failed');
+        const hasMapping = db.prepare(`
+          SELECT 1
+          FROM media m JOIN jimaku_mapping jm ON jm.series = m.series
+          WHERE m.id=?
+        `).get(req.params.id);
+        if (hasMapping && err.code !== 'NO_ENTRY' && err.code !== 'MEDIA_NOT_FOUND') {
+          setSubtitleSyncState(db, Number(req.params.id), 'failed', sanitizeSyncError(err));
         }
-
-        const buf = await client.download(best.url);
-        const ext = /\.srt$/i.test(best.name) ? 'srt' : 'ass';
-        const videoBase = path.basename(media.file_path).replace(/\.[^.]+$/, '');
-        const dest = path.join(path.dirname(media.file_path), `${videoBase}.ja.${ext}`);
-        fs.writeFileSync(dest, buf);
-
-        db.prepare(`
-          INSERT INTO jimaku_mapping (series, entry_id, entry_name) VALUES (?,?,?)
-          ON CONFLICT(series) DO UPDATE SET entry_id=excluded.entry_id, entry_name=excluded.entry_name
-        `).run(media.series, entryId, mapping?.entry_name ?? String(entryId));
-        db.prepare('DELETE FROM subtitle_file WHERE media_id=?').run(media.id);
-        db.prepare('INSERT INTO subtitle_file (media_id, file_path, format) VALUES (?,?,?)').run(media.id, dest, ext);
-
-        return { ok: true, file: best.name };
-      } catch (err: any) {
-        req.log.error(err);
-        if (reply.sent) return;
-        return reply.code(502).send({ code: 'JIMAKU_ERROR', error: String(err?.message ?? err) });
+        req.log.error(`jimaku subtitle download failed: ${err.code}`);
+        return reply.code(err.httpStatus).send({ code: err.code, error: err.message });
       }
     },
   );

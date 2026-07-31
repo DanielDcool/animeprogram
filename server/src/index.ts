@@ -12,31 +12,62 @@ import { jimakuRoutes } from './modules/jimaku/routes.js';
 import { vocabRoutes } from './modules/vocab/routes.js';
 import { createAniListCatalog } from './modules/catalog/client.js';
 import { catalogRoutes } from './modules/catalog/routes.js';
+import { createNyaaResourceProvider } from './modules/resource/nyaa.js';
+import { resourceRoutes } from './modules/resource/routes.js';
+import { createSubtitleSyncCoordinator } from './modules/jimaku/sync.js';
+import { createMediaDirectoryWatcher } from './modules/media/watcher.js';
 
 declare module 'fastify' {
   interface FastifyInstance { db: import('./db.js').Db }
 }
 
-export async function buildApp() {
+export async function buildApp(opts: { enableMediaAutomation?: boolean } = {}) {
   const app = Fastify({ logger: true });
   await app.register(cors, { origin: true });
   app.get('/api/health', async () => ({ ok: true }));
 
   const db = createDb(path.join(config.dataDir, 'library.db'));
   app.decorate('db', db);
-  await app.register(mediaRoutes, { db, mediaDir: config.mediaDir });
+  const subtitleSync = opts.enableMediaAutomation
+    ? createSubtitleSyncCoordinator({ db, log: app.log })
+    : null;
+  const mediaWatcher = subtitleSync
+    ? createMediaDirectoryWatcher({
+      db,
+      mediaDir: config.mediaDir,
+      onImported: (mediaIds) => subtitleSync.reconcile(mediaIds),
+      log: app.log,
+    })
+    : null;
+  await app.register(mediaRoutes, {
+    db,
+    mediaDir: config.mediaDir,
+    onImported: subtitleSync ? (mediaIds) => subtitleSync.reconcile(mediaIds) : undefined,
+  });
   await app.register(subtitleRoutes, { db });
   await app.register(analyzeRoutes, { db });
   await app.register(aiRoutes, { db });
   await app.register(miscRoutes, { db });
   await app.register(jimakuRoutes, { db });
   await app.register(vocabRoutes, { db });
-  await app.register(catalogRoutes, { client: createAniListCatalog() });
+  const catalog = createAniListCatalog();
+  await app.register(catalogRoutes, { client: catalog });
+  await app.register(resourceRoutes, { catalog, resources: createNyaaResourceProvider() });
+  if (subtitleSync && mediaWatcher) {
+    app.addHook('onReady', async () => {
+      await subtitleSync.reconcile();
+      await mediaWatcher.start();
+    });
+    app.addHook('onClose', async () => {
+      mediaWatcher.stop();
+      subtitleSync.stop();
+    });
+  }
   return app;
 }
 
 const isMain = process.argv[1]?.endsWith('index.ts') || process.argv[1]?.endsWith('index.js');
 if (isMain) {
-  const app = await buildApp();
+  const app = await buildApp({ enableMediaAutomation: true });
   app.listen({ port: config.port, host: '127.0.0.1' });
 }

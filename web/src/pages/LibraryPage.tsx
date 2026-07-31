@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import type { MediaItem } from '../types';
+import { countNeedsMapping, subtitleAction } from '../library/subtitleView';
 
 interface Candidate { id: number; name: string; englishName: string | null; japaneseName: string | null }
 
@@ -14,7 +15,11 @@ export default function LibraryPage() {
   const [busy, setBusy] = useState(false);
 
   const refresh = () => api.listMedia().then(setItems).catch(console.error);
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    void refresh();
+    const timer = window.setInterval(() => { void refresh(); }, 5_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const scan = async () => {
     setScanning(true);
@@ -52,8 +57,11 @@ export default function LibraryPage() {
       await refresh();
     } catch (err: any) {
       setSubMsg({ mediaId, text: `ダウンロード失敗: ${err?.body?.error ?? err.message}` });
+      await refresh();
     } finally { setBusy(false); }
   }
+
+  const needsMapping = countNeedsMapping(items);
 
   return (
     <main className="library">
@@ -61,10 +69,16 @@ export default function LibraryPage() {
         <h1>ライブラリ</h1>
         <button onClick={scan} disabled={scanning}>{scanning ? 'スキャン中…' : 'フォルダをスキャン'}</button>
       </header>
-      {items.length === 0 && <p>動画がありません。~/AnimeLibrary に mkv/mp4 と字幕を置いてスキャンしてください。</p>}
+      {needsMapping > 0 && (
+        <p className="library-notice">字幕作品の選択が必要です（{needsMapping}件）</p>
+      )}
+      {items.length === 0 && (
+        <p>動画がありません。~/AnimeLibrary に mkv/mp4 を置くと自動で追加されます。反映されない場合は手動スキャンを試してください。</p>
+      )}
       <ul className="media-list">
-        {items.map((m) => (
-          <li key={m.id}>
+        {items.map((m) => {
+          const action = subtitleAction(m);
+          return <li key={m.id}>
             <div className="media-row">
               {m.playable ? (
                 <Link to={`/play/${m.id}`}>
@@ -75,19 +89,20 @@ export default function LibraryPage() {
                   {m.series} {m.episode != null && `- 第${m.episode}話`}（要トランスコード）
                 </span>
               )}
-              {!m.hasSubtitle && <em> 字幕なし</em>}
+              {!m.hasSubtitle && <em className="subtitle-state"> 字幕なし</em>}
               {m.positionSec > 30 && <em> 続き {Math.floor(m.positionSec / 60)}:{String(Math.floor(m.positionSec % 60)).padStart(2, '0')}</em>}
-              {!m.hasSubtitle && (
-                <button className="sub-btn" disabled={busy} onClick={() => findSubtitle(m.id)}>
-                  字幕を探す
-                </button>
-              )}
-              {m.hasSubtitle && (
-                <button className="sub-btn" disabled={busy} onClick={() => findSubtitle(m.id)} title="jimaku から字幕を取り直す">
-                  ↺ 字幕
-                </button>
-              )}
+              <button
+                className="sub-btn"
+                disabled={busy || action.disabled}
+                onClick={() => m.subtitleStatus === 'failed' ? doDownload(m.id) : findSubtitle(m.id)}
+                title={m.subtitleStatus === 'ready' ? 'jimaku から字幕を取り直す' : undefined}
+              >
+                {action.label}
+              </button>
             </div>
+            {m.subtitleStatus === 'failed' && m.subtitleError && (
+              <p className="subtitle-error">字幕の自動取得に失敗: {m.subtitleError}</p>
+            )}
             {subMsg?.mediaId === m.id && <p className="sub-msg">{subMsg.text}</p>}
             {subSearch?.mediaId === m.id && (
               <div className="candidates">
@@ -101,8 +116,8 @@ export default function LibraryPage() {
                 <button className="candidate cancel" onClick={() => setSubSearch(null)}>キャンセル</button>
               </div>
             )}
-          </li>
-        ))}
+          </li>;
+        })}
       </ul>
     </main>
   );

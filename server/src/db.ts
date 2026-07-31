@@ -59,6 +59,12 @@ export function createDb(file: string): Db {
       entry_id INTEGER NOT NULL,
       entry_name TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS subtitle_sync_state (
+      media_id INTEGER PRIMARY KEY REFERENCES media(id),
+      status TEXT NOT NULL CHECK(status IN ('needs_mapping', 'downloading', 'failed')),
+      error TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS dict (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       kanji TEXT,

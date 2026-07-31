@@ -15,8 +15,10 @@
 4. 视频与字幕放入 `~/AnimeLibrary`（mkv/mp4 + 同名 `.srt`/`.ass`，`Show - 01.ja.srt` 形式也可；
    没有外部字幕时会自动抽取 mkv 内嵌日语字幕）
 5. jimaku 字幕自动匹配（可选）：在 https://jimaku.cc 注册 → https://jimaku.cc/profile 复制 API key
-   → 填入设置页。之后媒体库里点「字幕を探す」即可：首次为每部番选一次对应作品，
-   之后同系列自动按集数下载（优先 .srt）。已有字幕的条目也可点「↺ 字幕」重新拉取。
+   → 填入设置页。没有系列映射时，媒体库会提示点「字幕を探す」为每部番选择一次对应作品；
+   之后同系列新剧集会自动按集数下载字幕（优先 .srt）。已有字幕的条目也可点「↺ 字幕」重新拉取。
+6. 本机资源下载（可选）：安装 Transmission（`brew install --cask transmission`），在
+   Transmission「Settings → Transfers → Default location」选择 `~/AnimeLibrary`，并让它接管 magnet 链接。
 
 ## 启动
 
@@ -26,8 +28,17 @@ npm start
 浏览器打开 http://localhost:5173：
 
 - 「見つける」显示当前季、上一季与“今季首先看 3 部”，也可按日文、罗马字或英文名搜索。
-- 作品详情列出 AniList 收录的官方播放/官网入口；外部服务能否在所在地区播放，以服务页面为准。
-- 「ライブラリ」→「フォルダをスキャン」导入本地视频（mkv 会自动 remux 成 mp4，秒级）。
+- 作品详情列出 AniList 收录的官方播放/官网入口；点「ダウンロードを探す」会按作品标题和季度查询 Nyaa RSS，
+  自动排除明确标记为其他季度的结果，并优先排列整季、无需转换、H.264/AVC、1080p、合理体积、可信和
+  多字幕候选；可切换字幕付き/字幕なし/全部，点击候选的 magnet 后由本机 Transmission 打开确认窗口。
+- 「ライブラリ」递归监听 `~/AnimeLibrary`：整季子目录中的视频写入稳定后也会自动导入
+  （mkv 会自动 remux 成 mp4）；
+  「フォルダをスキャン」保留为未自动反映时的恢复入口。
+
+下载的视频不会经过或保存到本应用服务器：Transmission 直接写入本机 `~/AnimeLibrary`。应用确认文件停止写入后
+自动加入媒体库；已有 Jimaku 映射时自动取得字幕，没有映射时只在媒体库内提示选择一次。自动取得失败会保留映射并
+显示重试按钮。只下载你有权获取的内容；
+Nyaa 的 `trusted` 标记只是站内元数据，不代表版权许可或绝对安全。
 
 新番目录需要联网访问 AniList；即使 AniList 暂时不可用，本地媒体库、播放器和生词本仍能继续使用。
 
@@ -53,12 +64,13 @@ npm start
 
 - `server/`：Fastify + better-sqlite3 + kuromoji + JMdict + AniList GraphQL + Claude API（claude-opus-4-8）
 - `web/`：Vite + React，学习模式状态机是纯 reducer（`web/src/player/learningMode.ts`）
-- H.265/10bit 源浏览器无法播放，媒体库会标记「要トランスコード」，建议换 H.264 源
+- 当前 Mac 浏览器已验证可播放 remux 后的 H.265/HEVC Main 10；H.264 10-bit 等仍不兼容的源会标记
+  「要トランスコード」
 - 测试：`npm test`
 - AI 协作与开发上下文：先读 `AGENTS.md` 和 `docs/DEVELOPMENT.md`
 
 ## 资源边界与后续
 
-应用当前只展示 AniList 标记的 HTTPS 官方播放/官网链接；不会聚合盗版播放页、磁力链接或不明下载文件。
-合法取得的视频仍统一放入 `~/AnimeLibrary`，字幕可由 jimaku 自动匹配。应用内资源下载器尚未实现，
-开工前需先确认合法数据源、下载方式和暂停/恢复/做种等生命周期设计。
+官方播放入口与本机资源搜索在页面中分区。服务端只查询短暂缓存的公开 Nyaa RSS 元数据、校验 info hash
+并返回 magnet；不下载视频、不代理 BitTorrent 数据，也不控制删除/做种。目录监听只观察本机 `MEDIA_DIR`，
+仍不读取 Transmission 下载进度、不管理下载任务，也不绑定特定下载器。

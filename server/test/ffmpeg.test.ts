@@ -16,9 +16,10 @@ describe('decidePlayability', () => {
   it('h264 mp4 -> direct', () => {
     expect(decidePlayability(h264mkv as any, '.mp4')).toBe('direct');
   });
-  it('hevc -> transcode_needed', () => {
-    const probe = { streams: [{ index: 0, codec_type: 'video', codec_name: 'hevc' }] };
-    expect(decidePlayability(probe as any, '.mkv')).toBe('transcode_needed');
+  it('10bit hevc can be remuxed for the verified local browser', () => {
+    const probe = { streams: [{ index: 0, codec_type: 'video', codec_name: 'hevc', pix_fmt: 'yuv420p10le' }] };
+    expect(decidePlayability(probe as any, '.mkv')).toBe('remux');
+    expect(decidePlayability(probe as any, '.mp4')).toBe('direct');
   });
   it('10bit h264 -> transcode_needed', () => {
     const probe = { streams: [{ index: 0, codec_type: 'video', codec_name: 'h264', pix_fmt: 'yuv420p10le' }] };
@@ -36,6 +37,15 @@ describe('buildRemuxArgs', () => {
 describe('pickSubtitleStream', () => {
   it('prefers jpn text subtitle', () => {
     expect(pickSubtitleStream(h264mkv as any)).toEqual({ index: 2, codec: 'ass' });
+  });
+  it('does not treat a foreign-language subtitle as Japanese', () => {
+    const probe = {
+      streams: [
+        { index: 2, codec_type: 'subtitle', codec_name: 'ass', tags: { language: 'por' } },
+        { index: 3, codec_type: 'subtitle', codec_name: 'ass', tags: { language: 'eng' } },
+      ],
+    };
+    expect(pickSubtitleStream(probe as any)).toBeNull();
   });
   it('returns null when none', () => {
     expect(pickSubtitleStream({ streams: [] } as any)).toBeNull();

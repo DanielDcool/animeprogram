@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
+import ResourceResults from '../catalog/ResourceResults';
 import { scoreLabel, statusLabel } from '../catalog/view';
 import type { CatalogAnime } from '../types';
 
@@ -67,6 +68,8 @@ export default function AnimeDetailPage() {
             {information.length > 0 && <div className="resource-group"><h3>公式情報</h3><div className="resource-links">{information.map((link) => <a href={link.url} target="_blank" rel="noreferrer" key={`${link.site}-${link.url}`}>{link.site}<span>↗</span></a>)}</div></div>}
             {anime.links.length === 0 && <p className="muted-copy">AniList に公式リンクが登録されていません。作品公式サイトで配信先を確認してください。</p>}
           </section>
+
+          <ResourceResults animeId={anime.id} />
 
           <section className="local-learning">
             <div><p className="eyebrow">LOCAL LEARNING</p><h2>手元の動画で日本語を学ぶ</h2><p>合法的に入手した動画を <code>~/AnimeLibrary</code> に置けば、字幕検索・文解析・単語保存まで同じアプリで続けられます。</p></div>

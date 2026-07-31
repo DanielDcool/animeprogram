@@ -6,7 +6,7 @@
 > `docs/superpowers/plans/2026-07-21-jp-learning-player-mvp.md`（MVP 实现计划，已全部完成）。
 > 动画发现功能见 `docs/superpowers/specs/2026-07-22-anime-discovery-design.md` 与对应 plan。
 >
-> 最后校对：2026-07-22。
+> 最后校对：2026-07-31。
 
 ## 0. 如何使用这份文档
 
@@ -36,24 +36,29 @@ server/src/
   db.ts                  better-sqlite3 打开 + 全部建表（IF NOT EXISTS，改表结构直接加在这里）
   modules/
     media/     filename.ts(文件名→series/episode) ffmpeg.ts(probe/remux命令,纯函数+执行分离)
-               scanner.ts(扫描导入,FfmpegOps 依赖注入) routes.ts(列表/scan/Range流)
+               scanner.ts(指定文件/整目录扫描,返回新增ID) watcher.ts(稳定性检测+目录监听+周期对账)
+               routes.ts(列表/手动scan/Range流)
     subtitle/  parser.ts(srt+ass→Cue{start,end,text}) routes.ts(句子列表+偏移)
     analyze/   tokenizer.ts(kuromoji惰性单例) dictionary.ts(JMdict查词)
                jmdict-import.ts(流式导入) routes.ts(/api/analyze)
     ai/        explain.ts(Claude API, structured outputs) routes.ts(/api/explain, SQLite缓存)
-    jimaku/    client.ts(jimaku.cc API + pickBestFile) routes.ts(candidates/download)
+    jimaku/    client.ts(jimaku.cc API + pickBestFile) service.ts(可复用字幕下载)
+               sync.ts(持久状态+去重串行自动取得) routes.ts(candidates/download)
     catalog/   client.ts(AniList GraphQL + normalize + 10分钟缓存)
                editorial.ts(本地学习向推荐理由) routes.ts(/api/catalog/*)
+    resource/  provider.ts(统一资源类型) nyaa.ts(RSS解析/排序/5分钟缓存)
+               routes.ts(/api/catalog/anime/:id/resources)
     vocab/     routes.ts(收藏 CRUD + TSV 导出)
     misc/      routes.ts(progress + settings)
 web/src/
   api.ts                 唯一的后端调用出口（所有 fetch 都在这）
   pages/                 DiscoverPage / AnimeDetailPage / LibraryPage / PlayerPage / VocabPage / SettingsPage
-  catalog/               view.ts（季度、状态和评分显示的纯函数）
+  catalog/               view.ts（季度/状态/评分）resourceView.ts（资源显示纯函数）
+                         ResourceResults.tsx（Nyaa 候选与 magnet 交接）
   player/                learningMode.ts(纯reducer,核心状态机) AnalysisPanel / TranscriptList / SubtitleOverlay
 ```
 
-SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jimaku_mapping, vocab`
+SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jimaku_mapping, subtitle_sync_state, vocab`
 （settings 存 `anthropic_api_key` / `jimaku_api_key` / `ai_model`，凭证值不得进入日志、测试或文档）。
 
 ## 3. 已完成功能
@@ -61,7 +66,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | 功能 | 关键位置 |
 |------|----------|
 | 媒体扫描：mkv 自动 remux 成 .play.mp4、抽内嵌字幕、外部 `.ja.srt` 优先 | media/scanner.ts |
-| H.265/10bit 标记「要トランスコード」不播放（提示换源，MVP 不转码） | media/ffmpeg.ts decidePlayability |
+| H.265/HEVC Main 10 在当前 Mac 浏览器只 remux 不转码；H.264 10-bit 等不兼容源仍标记「要トランスコード」 | media/ffmpeg.ts decidePlayability |
 | 学习模式：默认无字幕；Space 暂停+显示；A 回句首；←/→ 跳句；S 常显；[ ] 偏移±100ms | player/learningMode.ts + PlayerPage |
 | 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，当前句自动滚动，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
@@ -71,6 +76,8 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | 观看进度：5 秒一存，媒体库显示「続き」 | misc/routes.ts |
 | 动画发现：首页实时显示当前季/上季、学习向 3 部推荐、日/英/罗马字搜索、响应式卡片 | catalog/* + DiscoverPage |
 | 作品详情：简介/评分/制作公司、AniList HTTPS 官方播放与官网链接、本地媒体库入口 | AnimeDetailPage |
+| 本机下载交接：按季度过滤错季结果，整季/可直接播放/1080p/可信/多字幕智能排序，再用合法 magnet 交给本机下载器 | resource/* + ResourceResults |
+| 本地媒体自动衔接：监听 MEDIA_DIR，文件稳定后自动扫描；已有 Jimaku 映射自动取字幕，无映射/失败在媒体库非打断提示 | media/watcher.ts + jimaku/sync.ts + LibraryPage |
 
 **已验证基线（2026-07-22）**：
 
@@ -81,13 +88,34 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 - 动画发现用真实 AniList 数据完成浏览器链路：2026 年 7 月/4 月切换 → 搜索 `Frieren` →
   打开《葬送のフリーレン》详情 → 显示 Crunchyroll/Netflix/YouTube 等官方入口 → 进入本地媒体库；
   320px 宽度下页面宽度等于视口，无横向溢出，浏览器控制台无 warning/error。
-- 自动测试基线为 server 64 个、web 12 个；TypeScript 与 web production build 通过。
+- 本机下载交接用 AniList 作品 196187 实测：Nyaa 英语字幕分类返回真实候选，页面显示可信标记、
+  画质/编码/大小/做种数/日期；Raw 分类切换和 magnet href 正确。H.265 已于 2026-07-31
+  在当前 Mac 浏览器验证为 remux 后可直接播放，AV1 与 H.264 10-bit 等未验证源继续显示转换提醒。
+  Transmission 4.1.3 已设为 magnet 默认应用，默认保存目录为 `/Users/daniel/AnimeLibrary`，
+  保留“打开 magnet 时显示确认窗口”；验证没有实际添加受版权保护的下载任务。
+- Transmission 的 macOS URL 处理器实测不接受把 `xt=urn:btih:<hash>` 整体表单编码成
+  `xt=urn%3Abtih%3A<hash>`；现已保留原始 `urn:btih:`，只对 `dn` 标题编码。浏览器真实列表第一个
+  href 已验证为新格式，没有实际点击或添加下载任务。
+- 自动衔接在真实开发服务启动后发现并导入既有 `Test Anime - 01.mkv`，识别同名外部字幕；浏览器中用临时
+  SQLite 行验证 `needs_mapping/downloading/failed/ready` 四种状态，页面无需刷新即轮询更新，顶部只统计
+  1 个待选择条目，失败原因/重试按钮正确，控制台无 warning/error；临时行已全部清理。
+- Nyaa 季度过滤用 AniList 108465《无职転生》第一季真实验证：查询词收窄为带 `S01` 的标题，返回 20 个
+  第一季候选，`S02/S03`、`II/III` 和 `Ⅱ/Ⅲ` 错季结果为 0；`S03E05` 紧连集数格式已有回归测试。
+- 同一真实列表验证智能排序：2160p 52.7 GiB 与 1080p 80.2 GiB 的超大候选被降级，第一项为
+  1080p HEVC Main 10、16.9 GiB 的完整第一季 + OVA 包；该包已真实下载并验证只需 remux。
+- 2026-07-31《无职転生》第一季真实闭环：Transmission 下载约 17 GiB、24 个 MKV（01–23 + 17.5）
+  到发布者子目录；递归扫描全部识别，HEVC Main 10 视频流原样复制、日语 Opus 转 AAC，生成 24 个
+  可播放 MP4。Jimaku 按前半 1426、后半 3547、特典 3546 分段取得 24 份日语 SRT，每集解析
+  228–462 句。第 1/12/23 集真实播放页均为 1920×1080、`readyState=4`、无媒体错误；点字幕句可跳转、
+  暂停、显示并分词。
+- 自动测试基线为 server 106 个、web 17 个；server/web TypeScript noEmit 与 web production build 通过。
   后续以实际 `npm test` 输出为准，不要只依赖这个数字。
 
 ## 4. 关键决策记录（为什么这么做）
 
 - **本地 Web 应用而非 Electron/mpv 插件**：开发快、UI 灵活、用户可远程访问；用户确认过。
-- **mkv 处理用 remux 而非转码**：h264+mkv 只换封装秒级完成；音轨统一转 AAC；字幕轨丢弃（单独抽成文件走统一管线）。
+- **mkv 处理用 remux 而非转码**：H.264 与已在当前 Mac 浏览器验证的 HEVC Main 10 都只换封装；
+  视频流原样复制、音轨统一转 AAC，字幕轨单独走统一管线。H.264 10-bit 等未验证编码不冒险放行。
 - **AI 引擎分层**：本地分词零成本秒出（每次暂停都跑），Claude API 只在按 D 时调用且缓存——成本可控。
 - **Anki 用 TSV 导出而非 AnkiConnect**：不依赖 Anki 在跑/装插件；以后要一键推送再加。
 - **jimaku 半自动**：番名模糊匹配不可靠，首次人工选一次 + jimaku_mapping 记住，之后全自动。
@@ -95,8 +123,20 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   HTTPS 资源筛选、错误映射和 10 分钟缓存。每页最多 20 条，不批量镜像 AniList 数据。
 - **发现与本地学习分层**：`/` 用来找作品，`/library` 保留已验证的本地学习管线；
   AniList 故障只影响发现页，不应阻断播放器、生词本或本地扫描。
-- **外部资源只给官方入口**：首版不聚合盗版播放、磁力或不明下载文件；详情仅显示 AniList
-  标记的 HTTPS `STREAMING`/`INFO`。应用内下载需要另行确认合法数据源和生命周期。
+- **官方观看入口与本机资源搜索分区**：AniList `STREAMING`/`INFO` 继续作为官方入口；用户明确触发时，
+  本地 Fastify 才查询 Nyaa RSS 公共元数据。服务端校验 info hash 后构造 `magnet:`，不下载、不缓存、
+  不代理视频；最终由本机下载器确认保存位置。Nyaa 故障不影响官方详情与本地学习。
+- **下载器用通用 magnet 协议，不绑定 WebUI**：macOS 当前配置 Transmission，保存目录与 `MEDIA_DIR`
+  同为 `~/AnimeLibrary`。曾尝试 qBittorrent 5.2.3，但其 Homebrew cask 已因 Gatekeeper 校验问题被弃用，
+  本机签名验证也不受信任，因此不绕过系统安全检查；未来若签名恢复仍可直接作为 magnet 处理器。构造链接时
+  `xt=urn:btih:<hash>` 必须保持原始协议格式，只编码 `dn`，以兼容 Transmission 的 macOS URL 处理器。
+- **自动衔接仍不绑定下载器**：`fs.watch` 只作唤醒，30 秒周期对账兜底；文件大小与 mtime 连续 15 秒
+  不变后才扫描。scanner 探测失败不入库，之后可重试。Jimaku 只在已有人工映射时自动串行请求；没有映射
+  不猜测、不弹窗，失败保留映射和脱敏原因。手动扫描继续作为恢复入口。
+- **Nyaa 候选先按季度收窄再排序**：从 AniList 日文/罗马字/英文标题中的 `II/III`、`S02/S03`、
+  `Season 2/3`、`第2期/第3期` 推断季度，无标记视为第一季；先用 `S01/S02` 查询，解析完整 RSS 后过滤
+  错季，再按整季包、无需转换、H.264/AVC、1080p、合理体积、非 remake、可信标记、多字幕、做种数的
+  顺序取前 20 条。H.264 10-bit 同样视为需转换，避免只看编码名称误判浏览器兼容性。
 - **better-sqlite3 锁 v11**：v13 prebuilt 在这台 Mac(arm64, Node 22.12) `new Database()` 直接 segfault。**不要升级**。
 - **npm 安装**：用户 ~/.npmrc 走 Clash 代理(127.0.0.1:7890)，代理没开时一切 install 失败；
   用 `npm install --userconfig /dev/null --registry https://registry.npmjs.org ...` 绕过，别改全局配置。
@@ -106,33 +146,42 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 - jimaku_mapping.entry_name 存的是 ID 字符串而非作品名（仅备注字段，不影响功能，顺手可修）
 - 视频自然播完时面板行为、原生控制条 Space 与快捷键 Space 可能双触发（实测未出问题，留意）
 - 「続き」需 positionSec>30 才显示；播放页尚无「从头开始/继续」选择
-- 转码兜底（H.265 源后台转码）未做，当前只提示换源
+- H.264 10-bit 等当前浏览器仍不兼容的源没有后台转码兜底，只提示换源
 - AniList 的作品简介多数是英文，首版不自动翻译；后续需真实使用确认是否值得接入缓存翻译
 - 编辑推荐理由按 AniList ID 本地维护；新季度若没有配置，会自动退化为本季人气前三而无定制理由
 - 新番目录依赖网络与 AniList 可用性；当前只有 10 分钟进程内缓存，服务重启后不会离线保留
+- Nyaa RSS 依赖外网；网络或站点不可用时页面只能显示稳定错误并回退到 Nyaa 站内搜索链接
+- 资源排序只能依据 Nyaa 元数据与标题模式；`trusted` 表示 Nyaa 站内标记，不等于版权许可或文件绝对安全
+- 季度识别依赖标题中的明确标记；没有 `II/S02/Season 2/第2期` 等标记的续作可能被视为第一季，
+  后续若真实遇到再引入 AniList 关系链人工校正，不为少数例外先做复杂映射。
+- 智能排序只能从 Nyaa 标题和元数据里选“当前最好”；若没有单文件、整季且浏览器兼容的候选，第一项仍可能
+  带转换警告或只能是分 Part 发布，页面必须保留警告，不能承诺绝对自动正确。
+- 部分发布标题不写 H.264/H.265，页面会显示未知编码；下载后仍以现有 ffprobe/scanner 判断为准
+- Jimaku 的 `jimaku_mapping` 仍是一部本地 series 对应一个条目；像《无职転生》第一季这种在 Jimaku
+  拆成前后半和特典三个条目的作品，当前需按集分段下载。现有 24 集已处理完成，但通用的分段映射 UI 尚未做。
+- 部分 Jimaku SRT 是滚动式闭路字幕，会把同一句拆成相邻或短暂重叠的 cue；《无职転生》第 1 集
+  12–14 秒附近可复现，字幕列表会看到少量重复句。当前保留源时间轴，后续应在真实使用确认后再做安全去重。
 
 ## 6. 下一步路线图
 
-### 6.1 本地下载器与字幕自动衔接（设计待审阅，未实现）
+### 6.1 本地下载器与字幕自动衔接（资源交接 + 自动衔接已完成）
 
 独立设计文档：`docs/superpowers/specs/2026-07-22-local-download-pipeline-design.md`。
+自动衔接详细设计：`docs/superpowers/specs/2026-07-23-auto-media-subtitle-design.md`。
 
-**范围决定（2026-07-22，用户确认）：首版做精简版**——只做「详情页搜 nyaa → 点击用本机 qBittorrent
-打开 magnet」，下载完复用现有「フォルダをスキャン」按钮 + jimaku 流程；不做下载意图状态机、
-MEDIA_DIR 监控、下载状态页、新 SQLite 表。自动衔接留到精简版用过之后按反馈再决定（见设计文档第 7 节）。
+**已落地范围（2026-07-29）**：详情页按 AniList 日文/罗马字/英文标题与季度标记回退搜索 Nyaa RSS；
+默认英语字幕分类，可切 Raw/全部；先过滤错季结果，再解析并校验 info hash、展示排序后的前 20 条；合法 `magnet:`
+由本机默认应用接管。视频不经过 Fastify，也不进入部署服务器磁盘。当前 Mac 使用 Transmission，
+默认保存到 `~/AnimeLibrary`。
 
-用户提供的原始流程截图已确认下载来源为 nyaa.si，目标架构为：Nyaa 只提供搜索元数据和 magnet，
-qBittorrent 在用户电脑上打开添加窗口并由用户选择本地目录，视频不经过部署服务器。当前本地 Fastify 服务作为
-“本地助手”，在下载完成后扫描 `MEDIA_DIR`，再复用 jimaku 与播放器。
+**下载后的现有流程**：用户在 Transmission 确认并完成下载 → 文件直接写入 `MEDIA_DIR` → watcher 确认
+15 秒稳定 → scanner/remux/ffprobe → 已有 jimaku 系列映射时自动按集数取得字幕；没有映射时媒体库顶部
+提示一次并保留「字幕を探す」。已有映射但失败时显示脱敏原因与「再試行」，不清除映射。
 
-阶段边界：
-
-- 第一阶段：Nyaa RSS 搜索、详情页资源列表、magnet 打开本机 qBittorrent、下载意图、目录完成检测、
-  自动扫描和 jimaku 衔接。
-- 第二阶段：qBittorrent WebUI 连接、精确进度、info hash 文件关联和完成事件。
-- 明确不做：服务器端视频下载、自建 BitTorrent 客户端、跨设备同步视频、远程删除用户文件。
-
-实施前需先完成书面设计审阅，并确认 qBittorrent 安装与 `~/AnimeLibrary` 默认目录设置。
+**明确未做，先按真实使用反馈决定是否补**：下载意图状态机、下载进度页、AniList 与本地 series 映射、
+qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。服务器端视频下载、自建 BitTorrent 客户端、
+跨设备同步视频和远程删除用户文件仍不在范围内。
+服务器端视频下载、自建 BitTorrent 客户端、跨设备同步视频和远程删除用户文件仍不在范围内。
 
 ### 6.2 动画发现后续（按真实使用反馈排序）
 
@@ -146,13 +195,13 @@ qBittorrent 在用户电脑上打开添加窗口并由用户选择本地目录�
 - 学习模式严格版：暂停不自动显示字幕，再按一键才显示（spec 里留过口子，等使用反馈）
 - AnkiConnect 一键推送；生词本内复习（简单间隔重复）
 - 多字幕轨支持（一个视频多个 subtitle_file，切换）；字幕样式设置（字号等）
-- 转码兜底：ffmpeg 后台转 H.265 → h264
+- 转码兜底：ffmpeg 后台把 H.264 10-bit 等未验证源转为浏览器兼容 H.264
 - 播放页「继续/从头」选择；剧集自动连播
 
 ## 7. 开发约定
 
 - **TDD**：纯逻辑（解析、状态机、文件挑选、路由）先写 vitest 测试；外部依赖（ffmpeg/jimaku/Claude）
-  全部依赖注入 fake。跑法：`npm test`（当前 server 64 + web 12，改完必须全绿）。
+  全部依赖注入 fake。跑法：`npm test`（当前 server 106 + web 17，改完必须全绿）。
 - **模块模式**：新功能 = `server/src/modules/<name>/routes.ts`（Fastify plugin，opts 传 db 和可注入依赖）
   + `index.ts` 注册 + `web/src/api.ts` 加方法。别在组件里直接 fetch。
 - **UI**：颜色只用 index.css `:root` 变量；日文 UI 文案；学习模式相关逻辑进 learningMode.ts reducer（保持可测）。
@@ -172,8 +221,9 @@ qBittorrent 在用户电脑上打开添加窗口并由用户选择本地目录�
 - **逐层自动化**：先让人工流程可靠，再自动匹配和串联；外部服务失败不能破坏本地播放与学习模式。
 - **发现数据少取、短缓存、不囤积**：AniList 每页最多 20 条并缓存 10 分钟；仅保存本地编辑理由，
   不把外部目录当作可永久镜像的项目资产。
-- **资源入口先安全可解释**：官方 streaming/info 链接可直接展示；任何下载器必须在设计中明确来源、
-  用户触发点、文件落点和完整生命周期，不以“搜索方便”为由扩大授权范围。
+- **资源入口先安全可解释**：官方 streaming/info 与本地资源搜索分区；资源搜索必须由用户点击触发，
+  只返回校验后的公开元数据和 magnet，并明确文件由本机下载器直接写入 `MEDIA_DIR`；本地助手只观察稳定文件，
+  不以“搜索方便”为由让服务器或网站接管下载器和视频生命周期。
 
 ## 9. 新会话接手与完成清单
 

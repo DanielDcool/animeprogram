@@ -7,28 +7,37 @@ interface Opts {
   db: Db;
   mediaDir: string;
   ops?: FfmpegOps;
+  onImported?: (mediaIds: number[]) => Promise<void> | void;
 }
 
 export async function mediaRoutes(app: FastifyInstance, opts: Opts) {
-  const { db, mediaDir, ops = realOps } = opts;
+  const { db, mediaDir, ops = realOps, onImported } = opts;
 
   app.get('/api/media', async () => {
     const rows = db.prepare(`
       SELECT m.id, m.series, m.episode, m.file_path, m.codec_status, m.playable_path,
              COALESCE(p.position_sec, 0) AS position_sec,
-             EXISTS(SELECT 1 FROM subtitle_file s WHERE s.media_id = m.id) AS has_subtitle
+             EXISTS(SELECT 1 FROM subtitle_file s WHERE s.media_id = m.id) AS has_subtitle,
+             CASE
+               WHEN EXISTS(SELECT 1 FROM subtitle_file s WHERE s.media_id = m.id) THEN 'ready'
+               ELSE COALESCE(ss.status, 'needs_mapping')
+             END AS subtitle_status,
+             CASE WHEN ss.status = 'failed' THEN ss.error ELSE NULL END AS subtitle_error
       FROM media m LEFT JOIN progress p ON p.media_id = m.id
+      LEFT JOIN subtitle_sync_state ss ON ss.media_id = m.id
       ORDER BY m.series, m.episode
     `).all() as any[];
     return rows.map((r) => ({
       id: r.id, series: r.series, episode: r.episode,
       codecStatus: r.codec_status, playable: r.playable_path != null,
       hasSubtitle: !!r.has_subtitle, positionSec: r.position_sec,
+      subtitleStatus: r.subtitle_status, subtitleError: r.subtitle_error,
     }));
   });
 
   app.post('/api/media/scan', async () => {
-    await scanLibrary(db, mediaDir, ops);
+    const result = await scanLibrary(db, mediaDir, ops);
+    if (result.importedIds.length > 0) await onImported?.(result.importedIds);
     return { ok: true };
   });
 
