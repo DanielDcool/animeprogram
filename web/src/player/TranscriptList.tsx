@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { Cue } from '../types';
 
 interface Props {
@@ -12,19 +12,19 @@ function fmt(sec: number): string {
 }
 
 export default function TranscriptList({ cues, currentIdx, onSelect }: Props) {
-  const listRef = useRef<HTMLOListElement>(null);
+  const currentRef = useRef<HTMLLIElement>(null);
 
-  // 再生に合わせて現在の句を自動スクロール
-  useEffect(() => {
-    listRef.current?.querySelector('.current')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  // タブを開いた時点で、現在の句をすぐ読みやすい位置に表示する。
+  useLayoutEffect(() => {
+    currentRef.current?.scrollIntoView({ block: 'center' });
   }, [currentIdx]);
 
   if (cues.length === 0) return <p className="panel-idle">字幕がありません。</p>;
 
   return (
-    <ol className="transcript" ref={listRef}>
+    <ol className="transcript">
       {cues.map((c, i) => (
-        <li key={i} className={i === currentIdx ? 'current' : ''} onClick={() => onSelect(i)}>
+        <li ref={i === currentIdx ? currentRef : null} key={i} className={i === currentIdx ? 'current' : ''} onClick={() => onSelect(i)}>
           <span className="t">{fmt(c.start)}</span>
           <span>{c.text}</span>
         </li>

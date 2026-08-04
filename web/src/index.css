@@ -56,12 +56,28 @@ input:focus { outline: none; border-color: var(--accent); }
 
 /* ---- 播放页 ---- */
 .player-page {
-  display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
-  gap: 12px; padding: 12px; height: calc(100vh - 46px);
+  display: flex; gap: 0; padding: 12px; height: calc(100vh - 58px);
 }
-.player-main { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.player-main {
+  flex: 0 1 var(--player-main-width, 62%); min-width: 360px;
+  display: flex; flex-direction: column; gap: 10px;
+}
 .video-wrap { position: relative; background: #0c0c0e; border-radius: 10px; overflow: hidden; }
 .video-wrap video { width: 100%; max-height: 72vh; display: block; }
+
+.fullscreen-button {
+  position: absolute; top: 10px; left: 12px; z-index: 3;
+  padding: 4px 9px; border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 11px;
+}
+
+.video-wrap:fullscreen {
+  width: 100vw; height: 100vh; border-radius: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.video-wrap:fullscreen video { width: 100%; height: 100%; max-height: none; object-fit: contain; }
+.video-wrap:fullscreen .subtitle-overlay { bottom: max(80px, 8vh); }
+.video-wrap:fullscreen .subtitle-overlay span { font-size: clamp(26px, 3vw, 46px); }
 
 .mode-badge {
   position: absolute; top: 10px; right: 12px; z-index: 2;
@@ -85,13 +101,27 @@ input:focus { outline: none; border-color: var(--accent); }
   background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
   padding: 5px 10px; font-size: 12px; color: var(--text-muted); white-space: nowrap;
 }
+.hotkeys button.key-chip { cursor: pointer; font: inherit; }
+.hotkeys button.key-chip:hover { background: var(--surface-2); }
 .hotkeys .key-chip b { color: var(--text); font-weight: 600; margin-right: 5px; }
 .hotkeys .key-chip .on { color: var(--warm); }
 .hotkeys a { margin-left: auto; font-size: 13px; }
 .warn { color: #f082aa; font-size: 14px; }
 
+.player-resizer {
+  position: relative; flex: 0 0 12px; cursor: col-resize; touch-action: none; outline: none;
+}
+.player-resizer::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 5px; width: 2px;
+  border-radius: 2px; background: var(--border-strong); transition: background 0.15s, width 0.15s;
+}
+.player-resizer:hover::before, .player-resizer:focus-visible::before {
+  left: 4px; width: 4px; background: var(--accent);
+}
+
 /* ---- 右侧分析面板 ---- */
 .analysis-panel {
+  flex: 1 0 320px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
   padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0;
 }
@@ -305,8 +335,10 @@ input:focus { outline: none; border-color: var(--accent); }
   .detail-layout { grid-template-columns: 180px minmax(0, 1fr); gap: 28px; margin-top: -85px; }
   .detail-main { padding-top: 82px; }
   .local-learning { align-items: flex-start; flex-direction: column; }
-  .player-page { display: flex; flex-direction: column; height: auto; min-height: calc(100vh - 58px); }
-  .analysis-panel { min-height: 460px; }
+  .player-page { flex-direction: column; height: auto; min-height: calc(100vh - 58px); }
+  .player-main { flex: none; min-width: 0; }
+  .player-resizer { display: none; }
+  .analysis-panel { flex: none; min-width: 0; min-height: 460px; }
 }
 
 @media (max-width: 580px) {

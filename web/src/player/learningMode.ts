@@ -8,6 +8,8 @@ export interface LearnState {
 
 export const initialState: LearnState = { paused: false, revealed: false, alwaysOn: false };
 
+export const REPLAY_PREVIOUS_WINDOW_MS = 400;
+
 export type LearnAction =
   | { type: 'TOGGLE_PAUSE' }
   | { type: 'REPLAY'; cueStart: number | null }
@@ -57,4 +59,12 @@ export function currentCueIndex(cues: Cue[], time: number): number {
     else break;
   }
   return idx;
+}
+
+/** A を素早く続けて押した時は、一つ前の句に戻る。 */
+export function replayTargetIndex(cueIdx: number, lastReplayAt: number | null, now: number): number {
+  if (cueIdx < 0) return -1;
+  return lastReplayAt != null && now >= lastReplayAt && now - lastReplayAt <= REPLAY_PREVIOUS_WINDOW_MS
+    ? cueIdx - 1
+    : cueIdx;
 }

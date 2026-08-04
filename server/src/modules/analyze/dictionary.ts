@@ -21,7 +21,15 @@ export interface LookupResult { word: string; kana: string; gloss: string }
 
 export function lookup(db: Db, term: string, limit = 5): LookupResult[] {
   const rows = db.prepare(
-    `SELECT COALESCE(kanji, kana) AS word, kana, gloss FROM dict WHERE kanji = ? OR kana = ? LIMIT ?`,
+    `SELECT COALESCE(dict.kanji, dict.kana) AS word, dict.kana, dict.gloss
+     FROM dict
+     JOIN (
+       SELECT MIN(id) AS id
+       FROM dict
+       WHERE kanji = ? OR kana = ?
+       GROUP BY gloss
+     ) AS unique_gloss ON unique_gloss.id = dict.id
+     LIMIT ?`,
   ).all(term, term, limit) as LookupResult[];
   return rows;
 }

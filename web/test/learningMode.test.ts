@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { initialState, reduce, currentCueIndex, type LearnState } from '../src/player/learningMode';
+import {
+  initialState,
+  reduce,
+  currentCueIndex,
+  replayTargetIndex,
+  type LearnState,
+} from '../src/player/learningMode';
 import type { Cue } from '../src/types';
 
 const cues: Cue[] = [
@@ -13,6 +19,18 @@ describe('currentCueIndex', () => {
     expect(currentCueIndex(cues, 4)).toBe(0);      // 間隙 → 直前の句
     expect(currentCueIndex(cues, 6)).toBe(1);
     expect(currentCueIndex(cues, 0.5)).toBe(-1);   // 最初の句より前
+  });
+});
+
+describe('replayTargetIndex', () => {
+  it('uses the previous cue for a second A press within the replay window', () => {
+    expect(replayTargetIndex(3, null, 1_000)).toBe(3);
+    expect(replayTargetIndex(3, 1_000, 1_350)).toBe(2);
+  });
+
+  it('replays the current cue after the window expires and does not go before the first cue', () => {
+    expect(replayTargetIndex(3, 1_000, 1_500)).toBe(3);
+    expect(replayTargetIndex(0, 1_000, 1_350)).toBe(-1);
   });
 });
 

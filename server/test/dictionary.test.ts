@@ -13,4 +13,15 @@ describe('dictionary', () => {
     expect(lookup(db, 'あんた')[0].gloss).toContain('you');
     expect(lookup(db, '存在しない語')).toEqual([]);
   });
+
+  it('deduplicates identical glosses from variant spellings', () => {
+    const db = createDb(':memory:');
+    insertEntry(db, {
+      kanji: ['籠もる', '篭もる'],
+      kana: ['こもる'],
+      gloss: ['to shut oneself in'],
+    });
+
+    expect(lookup(db, 'こもる')).toHaveLength(1);
+  });
 });

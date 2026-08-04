@@ -7,9 +7,10 @@ interface Props {
   context: string[];
   mediaId: number;
   positionSec: number;
+  explainRequest: { id: number; sentence: string | null };
 }
 
-export default function AnalysisPanel({ sentence, context, mediaId, positionSec }: Props) {
+export default function AnalysisPanel({ sentence, context, mediaId, positionSec, explainRequest }: Props) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [active, setActive] = useState<number | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
@@ -42,12 +43,9 @@ export default function AnalysisPanel({ sentence, context, mediaId, positionSec 
     setSentenceSaved(true);
   }
 
-  // D キーで深掘り解説
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.code === 'KeyD' && sentence) requestExplain(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+    if (explainRequest.sentence === sentence && sentence) void requestExplain();
+  }, [explainRequest.id]);
 
   async function requestExplain() {
     if (!sentence || explainState === 'loading' || explanation) return;
@@ -137,7 +135,7 @@ export default function AnalysisPanel({ sentence, context, mediaId, positionSec 
         ) : explainState === 'loading' ? (
           <p className="hint">AI 解説を生成中…</p>
         ) : explainState === 'unconfigured' ? (
-          <p className="hint">API キー未設定。設定ページで Anthropic API キーを入れてください。</p>
+          <p className="hint">API キー未設定。設定ページで選んだ AI サービスの API キーを入れてください。</p>
         ) : explainState === 'error' ? (
           <p className="hint">AI 解説に失敗しました。<button onClick={requestExplain}>再試行</button></p>
         ) : (

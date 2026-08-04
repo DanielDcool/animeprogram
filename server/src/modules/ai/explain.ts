@@ -34,16 +34,24 @@ const SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const SYSTEM = `あなたは日本語教師です。アニメの台詞を、日本語を勉強している中国語話者（N1レベル）向けに解説します。解説は中国語で書き、文法用語は必要に応じて日本語を併記してください。`;
+const SYSTEM = `あなたは日本語教師です。アニメの台詞を、日本語を勉強している中国語話者（N1レベル）向けに解説します。解説は中国語で書き、文法用語は必要に応じて日本語を併記してください。読み仮名の対象は、解説対象の台詞に含まれる日本語の漢字だけです。その語を解説内で日本語として引用・提示するときは、直後に読み仮名を全角括弧で添えてください。例：原文に「一発」があれば「一発（いっぱつ）」と書きます。原文にない漢字を含む日本語、特に説明のために追加した名詞、動詞、仮定形、推量などの文法用語や品詞名には読み仮名を付けないでください。中国語そのものの漢字にも読み仮名を付けません。`;
+
+function makeUserPrompt(input: { text: string; context: string[] }): string {
+  const contextBlock = input.context.length
+    ? `前後の台詞（文脈参考用）:\n${input.context.join('\n')}\n\n`
+    : '';
+  return `${contextBlock}解説対象の台詞:\n${input.text}`;
+}
+
+function parseExplanation(text: string): Explanation {
+  return JSON.parse(text) as Explanation;
+}
 
 export async function explainSentence(
   client: ExplainClient,
   model: string,
   input: { text: string; context: string[] },
 ): Promise<Explanation> {
-  const contextBlock = input.context.length
-    ? `前後の台詞（文脈参考用）:\n${input.context.join('\n')}\n\n`
-    : '';
   const response = await client.messages.create({
     model,
     max_tokens: 2048,
@@ -51,7 +59,7 @@ export async function explainSentence(
     system: SYSTEM,
     output_config: { format: { type: 'json_schema', schema: SCHEMA as any } },
     messages: [
-      { role: 'user', content: `${contextBlock}解説対象の台詞:\n${input.text}` },
+      { role: 'user', content: makeUserPrompt(input) },
     ],
   });
   if (response.stop_reason === 'refusal') {
@@ -59,5 +67,105 @@ export async function explainSentence(
   }
   const text = response.content.find((b: any) => b.type === 'text') as { text: string } | undefined;
   if (!text) throw new Error('empty AI response');
-  return JSON.parse(text.text) as Explanation;
+  return parseExplanation(text.text);
+}
+
+export async function explainSentenceWithDeepSeek(
+  apiKey: string,
+  model: string,
+  input: { text: string; context: string[] },
+  fetchFn: typeof fetch = fetch,
+): Promise<Explanation> {
+  const response = await fetchFn('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      max_tokens: 2048,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `${SYSTEM}\n必ず JSON オブジェクトだけを返してください。形式例: {"translation":"...","structure":"...","expressions":[{"expression":"...","meaning":"..."}],"nuance":"..."}`,
+        },
+        { role: 'user', content: makeUserPrompt(input) },
+      ],
+    }),
+  });
+  if (!response.ok) throw new Error(`DeepSeek request failed (${response.status})`);
+  const payload = await response.json() as { choices?: { message?: { content?: string } }[] };
+  const text = payload.choices?.[0]?.message?.content;
+  if (!text) throw new Error('empty AI response');
+  return parseExplanation(text);
+}
+
+export async function explainSentenceWithOpenAI(
+  apiKey: string,
+  model: string,
+  input: { text: string; context: string[] },
+  fetchFn: typeof fetch = fetch,
+): Promise<Explanation> {
+  const response = await fetchFn('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      max_output_tokens: 2048,
+      instructions: SYSTEM,
+      input: makeUserPrompt(input),
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'japanese_explanation',
+          strict: true,
+          schema: SCHEMA,
+        },
+      },
+    }),
+  });
+  if (!response.ok) throw new Error(`OpenAI request failed (${response.status})`);
+  const payload = await response.json() as {
+    output?: { content?: { type?: string; text?: string; refusal?: string }[] }[];
+  };
+  const content = payload.output?.flatMap((item) => item.content ?? []) ?? [];
+  if (content.some((item) => item.type === 'refusal')) throw new Error('AI declined to answer');
+  const text = content.find((item) => item.type === 'output_text')?.text;
+  if (!text) throw new Error('empty AI response');
+  return parseExplanation(text);
+}
+
+export async function explainSentenceWithGemini(
+  apiKey: string,
+  model: string,
+  input: { text: string; context: string[] },
+  fetchFn: typeof fetch = fetch,
+): Promise<Explanation> {
+  const response = await fetchFn('https://generativelanguage.googleapis.com/v1beta/interactions', {
+    method: 'POST',
+    headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      input: makeUserPrompt(input),
+      system_instruction: SYSTEM,
+      store: false,
+      generation_config: { max_output_tokens: 4096, thinking_level: 'low' },
+      response_format: {
+        type: 'text',
+        mime_type: 'application/json',
+        schema: SCHEMA,
+      },
+    }),
+  });
+  if (!response.ok) throw new Error(`Gemini request failed (${response.status})`);
+  const payload = await response.json() as {
+    steps?: { type?: string; content?: { type?: string; text?: string }[] }[];
+  };
+  const modelOutput = payload.steps?.filter((step) => step.type === 'model_output').at(-1);
+  const text = modelOutput?.content
+    ?.filter((content) => content.type === 'text')
+    .map((content) => content.text ?? '')
+    .join('');
+  if (!text) throw new Error('empty AI response');
+  return parseExplanation(text);
 }

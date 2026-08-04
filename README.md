@@ -12,12 +12,17 @@
    ```bash
    npm run import-jmdict -w server
    ```
-4. 视频与字幕放入 `~/AnimeLibrary`（mkv/mp4 + 同名 `.srt`/`.ass`，`Show - 01.ja.srt` 形式也可；
+4. AI 解说（可选）：在设置页选择 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini 后
+   填入对应 API key。DeepSeek 默认模型为 `deepseek-v4-flash`，OpenAI 为 `gpt-5.6-sol`，Gemini 为
+   `gemini-3.6-flash`，都可在同页修改。Gemini key 可在 [Google AI Studio](https://aistudio.google.com/apikey) 创建。
+   OpenAI 需要 [OpenAI Platform API key](https://platform.openai.com/api-keys)；ChatGPT / Codex 订阅本身
+   不提供可直接填入本应用的独立 key。
+5. 视频与字幕放入 `~/AnimeLibrary`（mkv/mp4 + 同名 `.srt`/`.ass`，`Show - 01.ja.srt` 形式也可；
    没有外部字幕时会自动抽取 mkv 内嵌日语字幕）
-5. jimaku 字幕自动匹配（可选）：在 https://jimaku.cc 注册 → https://jimaku.cc/profile 复制 API key
+6. jimaku 字幕自动匹配（可选）：在 https://jimaku.cc 注册 → https://jimaku.cc/profile 复制 API key
    → 填入设置页。没有系列映射时，媒体库会提示点「字幕を探す」为每部番选择一次对应作品；
    之后同系列新剧集会自动按集数下载字幕（优先 .srt）。已有字幕的条目也可点「↺ 字幕」重新拉取。
-6. 本机资源下载（可选）：安装 Transmission（`brew install --cask transmission`），在
+7. 本机资源下载（可选）：安装 Transmission（`brew install --cask transmission`），在
    Transmission「Settings → Transfers → Default location」选择 `~/AnimeLibrary`，并让它接管 magnet 链接。
 
 ## 启动
@@ -47,12 +52,17 @@ Nyaa 的 `trusted` 标记只是站内元数据，不代表版权许可或绝对�
 | 键 | 功能 |
 |----|------|
 | Space | 暂停并显示当前句（右侧自动分词查词）/ 继续（重新隐藏字幕）|
-| A | 回到本句开头重听（不显示字幕）|
+| A | 回到本句开头重听（不显示字幕）；快速连按两次会回到上一句 |
 | ← / → | 上一句 / 下一句 |
-| D | 当前句 AI 深度讲解（需在设置页配 Anthropic API key；同句缓存，不重复计费）|
+| D | 当前句 AI 深度讲解（只给原句中出现的日语汉字标注“漢字（かな）”，解释新增的文法术语不标读音；需在设置页配所选服务的 API key；同服务同模型同句缓存，不重复计费）|
 | S | 字幕常显开关（普通看番模式）|
-| T | 在「解析 / 字幕一覧」之间切换；点列表中的句子会跳转、暂停并解析 |
+| T | 在「解析 / 字幕一覧」之间切换；打开列表会直接定位当前句，点列表中的句子会跳转、暂停并解析 |
 | [ / ] | 字幕偏移 ±100ms（持久保存）|
+
+播放页中的快捷键提示也都是可点击按钮，和对应按键作用相同。
+
+桌面端可拖动视频与解析面板之间的竖线调整宽度，也可聚焦竖线后按 ← / → 微调，宽度会自动保留。
+需要全屏时请点视频左上角「⛶ 全画面」；它会把应用字幕层一起带入全屏。
 
 ## 生词本
 
@@ -62,7 +72,7 @@ Nyaa 的 `trusted` 标记只是站内元数据，不代表版权许可或绝对�
 
 ## 技术要点
 
-- `server/`：Fastify + better-sqlite3 + kuromoji + JMdict + AniList GraphQL + Claude API（claude-opus-4-8）
+- `server/`：Fastify + better-sqlite3 + kuromoji + JMdict + AniList GraphQL + Anthropic / DeepSeek / OpenAI / Gemini API
 - `web/`：Vite + React，学习模式状态机是纯 reducer（`web/src/player/learningMode.ts`）
 - 当前 Mac 浏览器已验证可播放 remux 后的 H.265/HEVC Main 10；H.264 10-bit 等仍不兼容的源会标记
   「要トランスコード」

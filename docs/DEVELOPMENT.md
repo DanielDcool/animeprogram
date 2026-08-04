@@ -6,7 +6,7 @@
 > `docs/superpowers/plans/2026-07-21-jp-learning-player-mvp.md`（MVP 实现计划，已全部完成）。
 > 动画发现功能见 `docs/superpowers/specs/2026-07-22-anime-discovery-design.md` 与对应 plan。
 >
-> 最后校对：2026-07-31。
+> 最后校对：2026-08-03。
 
 ## 0. 如何使用这份文档
 
@@ -41,7 +41,7 @@ server/src/
     subtitle/  parser.ts(srt+ass→Cue{start,end,text}) routes.ts(句子列表+偏移)
     analyze/   tokenizer.ts(kuromoji惰性单例) dictionary.ts(JMdict查词)
                jmdict-import.ts(流式导入) routes.ts(/api/analyze)
-    ai/        explain.ts(Claude API, structured outputs) routes.ts(/api/explain, SQLite缓存)
+    ai/        explain.ts(Anthropic / DeepSeek / OpenAI / Gemini API, structured outputs) routes.ts(/api/explain, SQLite缓存)
     jimaku/    client.ts(jimaku.cc API + pickBestFile) service.ts(可复用字幕下载)
                sync.ts(持久状态+去重串行自动取得) routes.ts(candidates/download)
     catalog/   client.ts(AniList GraphQL + normalize + 10分钟缓存)
@@ -59,7 +59,8 @@ web/src/
 ```
 
 SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jimaku_mapping, subtitle_sync_state, vocab`
-（settings 存 `anthropic_api_key` / `jimaku_api_key` / `ai_model`，凭证值不得进入日志、测试或文档）。
+（settings 存 `ai_provider` / `anthropic_api_key` / `deepseek_api_key` / `openai_api_key` / `gemini_api_key` /
+`jimaku_api_key` / `ai_model`，凭证值不得进入日志、测试或文档）。
 
 ## 3. 已完成功能
 
@@ -67,10 +68,11 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 |------|----------|
 | 媒体扫描：mkv 自动 remux 成 .play.mp4、抽内嵌字幕、外部 `.ja.srt` 优先 | media/scanner.ts |
 | H.265/HEVC Main 10 在当前 Mac 浏览器只 remux 不转码；H.264 10-bit 等不兼容源仍标记「要トランスコード」 | media/ffmpeg.ts decidePlayability |
-| 学习模式：默认无字幕；Space 暂停+显示；A 回句首；←/→ 跳句；S 常显；[ ] 偏移±100ms | player/learningMode.ts + PlayerPage |
-| 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，当前句自动滚动，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
+| 学习模式：默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显；[ ] 偏移±100ms；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
+| 桌面播放器布局：视频/解析面板之间可拖动调宽并记住宽度；自定义全屏会将视频、状态和字幕层一起全屏 | PlayerPage + playerLayout.ts |
+| 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，打开即定位当前句，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
-| AI 深度讲解：D 键，claude-opus-4-8 + json_schema 输出{翻译/语法结构/表现/语气}，按句哈希缓存 | ai/explain.ts |
+| AI 深度讲解：D 键，设置页可选 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini；统一输出{翻译/语法结构/表现/语气}，只给原句中出现的日语汉字标读音，解释新增术语不标；按格式版本/服务/模型/句子缓存 | ai/explain.ts |
 | jimaku 字幕匹配：候选选择一次→jimaku_mapping 记住→按 episode 自动下载(.srt优先,跳过压缩包) | jimaku/* |
 | 生词本：词/句收藏（带出处+时间戳，去重），単語帳页面，Anki TSV 导出 | vocab/routes.ts + VocabPage |
 | 观看进度：5 秒一存，媒体库显示「続き」 | misc/routes.ts |
@@ -79,7 +81,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | 本机下载交接：按季度过滤错季结果，整季/可直接播放/1080p/可信/多字幕智能排序，再用合法 magnet 交给本机下载器 | resource/* + ResourceResults |
 | 本地媒体自动衔接：监听 MEDIA_DIR，文件稳定后自动扫描；已有 Jimaku 映射自动取字幕，无映射/失败在媒体库非打断提示 | media/watcher.ts + jimaku/sync.ts + LibraryPage |
 
-**已验证基线（2026-07-22）**：
+**已验证基线（截至 2026-08-02）**：
 
 - jimaku 用真实 key 联调通过：《葬送のフリーレン》第 1 话字幕真实下载并解析出 265 句；测试媒体已清理，系列映射保留。
 - 生词本在浏览器中完成“收藏单词 + 收藏句子 → 列表展示 → TSV 导出”链路；演示数据已清理。
@@ -108,15 +110,37 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   可播放 MP4。Jimaku 按前半 1426、后半 3547、特典 3546 分段取得 24 份日语 SRT，每集解析
   228–462 句。第 1/12/23 集真实播放页均为 1920×1080、`readyState=4`、无媒体错误；点字幕句可跳转、
   暂停、显示并分词。
-- 自动测试基线为 server 106 个、web 17 个；server/web TypeScript noEmit 与 web production build 通过。
+- 自动测试基线为 server 113 个、web 23 个；server/web TypeScript noEmit 与 web production build 通过。
   后续以实际 `npm test` 输出为准，不要只依赖这个数字。
+- 2026-08-01：播放器实际验证 DeepSeek `deepseek-v4-flash` 能生成四段式日语解说；同一字幕中的
+  `こもる` 词典释义因异体字导致的重复已按释义去重，界面只显示一次。
+- ~~2026-08-01：AI 解说中每次出现的日语汉字都附读音。~~ **已过时（2026-08-02）**：这会让
+  `名詞`、`仮定形`、`推量` 等解释术语充满括号，降低可读性。
+- 2026-08-02：读音规则收窄为“只给原句中出现的日语汉字标注假名”；解释为了说明而新增的文法术语、
+  品词名及中文汉字不标读音。解释缓存格式由 `furigana-v2` 升到 `source-furigana-v3`，旧结果会自动重新生成。
+- 2026-08-01：设置页与服务端新增 OpenAI（Codex / GPT）提供商，默认 `gpt-5.6-sol`，通过 Responses API
+  的 `text.format` JSON Schema 输出；浏览器已验证选项、默认模型和 key 状态文案，真实 key 的首次讲解联调待配置后验证。
+- 2026-08-01：新增 Google Gemini 提供商，默认稳定模型 `gemini-3.6-flash`，按官方 Interactions API
+  调用，`store: false`，以 `response_format` JSON Schema 输出。真实 Google AI Studio key 已完成接口和播放器
+  D 键实弹联调，能够生成四段式解说。联调修复了两个兼容点：读取最后一个 `model_output` 的全部
+  `text` 分块并拼接；使用 `thinking_level: low`、`max_output_tokens: 4096`，避免思考预算挤占结构化输出
+  而产生截断 JSON。浏览器验证解说正常显示且无控制台错误，相同服务/模型/句子会命中缓存。
+- 2026-08-01：桌面播放页由固定两栏改为可调分栏；分隔线支持拖动和左右方向键，宽度存于浏览器本地。
+  视频原生全屏入口隐藏，改由视频容器调用 Fullscreen API，使 `SubtitleOverlay` 与视频一起进入全屏。
+  真实浏览器验证 62%→64% 调整与跨页面重开保留；全屏容器为 1800×1126，字幕层宽 1800 且可见，
+  退出全屏正常、错误日志为空。820px 以下继续使用上下布局。
+- 2026-08-03：播放器快捷键提示已改为可点击按钮；实测 Space 点击会暂停并显示字幕，连续点击 A 会从当前句
+  回到上一句。打开字幕一覧时，当前第 14 条直接位于列表中部（`scrollTop=218.5`），浏览器控制台无错误。
 
 ## 4. 关键决策记录（为什么这么做）
 
 - **本地 Web 应用而非 Electron/mpv 插件**：开发快、UI 灵活、用户可远程访问；用户确认过。
 - **mkv 处理用 remux 而非转码**：H.264 与已在当前 Mac 浏览器验证的 HEVC Main 10 都只换封装；
   视频流原样复制、音轨统一转 AAC，字幕轨单独走统一管线。H.264 10-bit 等未验证编码不冒险放行。
-- **AI 引擎分层**：本地分词零成本秒出（每次暂停都跑），Claude API 只在按 D 时调用且缓存——成本可控。
+- **AI 引擎分层**：本地分词零成本秒出（每次暂停都跑），AI 解说只在按 D 时调用且缓存；当前支持
+  Anthropic、DeepSeek、OpenAI 与 Gemini。DeepSeek 按官方 JSON mode 调用，OpenAI 按 Responses API、
+  Gemini 按 Interactions API 的严格 JSON Schema 调用；Gemini 请求关闭服务端保存。设置中所谓“Codex key”
+  实际为 OpenAI Platform API key，与 ChatGPT / Codex 订阅分开。
 - **Anki 用 TSV 导出而非 AnkiConnect**：不依赖 Anki 在跑/装插件；以后要一键推送再加。
 - **jimaku 半自动**：番名模糊匹配不可靠，首次人工选一次 + jimaku_mapping 记住，之后全自动。
 - **季番目录走服务端 AniList 适配层**：浏览器不直连 GraphQL；服务端统一非成人过滤、字段清理、
@@ -161,6 +185,8 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   拆成前后半和特典三个条目的作品，当前需按集分段下载。现有 24 集已处理完成，但通用的分段映射 UI 尚未做。
 - 部分 Jimaku SRT 是滚动式闭路字幕，会把同一句拆成相邻或短暂重叠的 cue；《无职転生》第 1 集
   12–14 秒附近可复现，字幕列表会看到少量重复句。当前保留源时间轴，后续应在真实使用确认后再做安全去重。
+- OpenAI 提供商已用注入的 HTTP 响应完成路由回归测试，但尚未用用户真实 OpenAI Platform key 生成过讲解；
+  配置后应完成一次 D 键实弹联调，再决定是否需要调整默认模型或输出 token 上限。
 
 ## 6. 下一步路线图
 
@@ -200,8 +226,8 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 
 ## 7. 开发约定
 
-- **TDD**：纯逻辑（解析、状态机、文件挑选、路由）先写 vitest 测试；外部依赖（ffmpeg/jimaku/Claude）
-  全部依赖注入 fake。跑法：`npm test`（当前 server 106 + web 17，改完必须全绿）。
+- **TDD**：纯逻辑（解析、状态机、文件挑选、路由）先写 vitest 测试；外部依赖（ffmpeg/jimaku/AI API）
+  全部依赖注入 fake。跑法：`npm test`（当前 server 113 + web 23，改完必须全绿）。
 - **模块模式**：新功能 = `server/src/modules/<name>/routes.ts`（Fastify plugin，opts 传 db 和可注入依赖）
   + `index.ts` 注册 + `web/src/api.ts` 加方法。别在组件里直接 fetch。
 - **UI**：颜色只用 index.css `:root` 变量；日文 UI 文案；学习模式相关逻辑进 learningMode.ts reducer（保持可测）。
@@ -217,6 +243,8 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 - **本地优先，AI 按需**：分词与词典保持本地、快速、零调用成本；生成式讲解由用户明确触发并缓存。
 - **不可靠匹配保留一次人工确认**：jimaku 已采用“首次选作品、后续记忆映射”；其他外部数据源也优先遵循这个模式。
 - **核心交互保持纯状态机**：播放、暂停、跳句、选择字幕句等行为先在 reducer 中定义和测试，再接 UI。
+- **全屏作用于视频容器而非 `<video>` 本身**：字幕是应用覆盖层，不属于原生视频元素；只把 `<video>`
+  全屏会丢失字幕，因此隐藏原生全屏入口并提供包含状态徽标和字幕层的容器全屏按钮。
 - **可移植输出优先**：当前用 Anki TSV 而非强绑定插件；只有真实使用证明一键推送有价值时再引入 AnkiConnect。
 - **逐层自动化**：先让人工流程可靠，再自动匹配和串联；外部服务失败不能破坏本地播放与学习模式。
 - **发现数据少取、短缓存、不囤积**：AniList 每页最多 20 条并缓存 10 分钟；仅保存本地编辑理由，
