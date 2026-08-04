@@ -6,7 +6,7 @@
 > `docs/superpowers/plans/2026-07-21-jp-learning-player-mvp.md`（MVP 实现计划，已全部完成）。
 > 动画发现功能见 `docs/superpowers/specs/2026-07-22-anime-discovery-design.md` 与对应 plan。
 >
-> 最后校对：2026-08-03。
+> 最后校对：2026-08-04。
 
 ## 0. 如何使用这份文档
 
@@ -223,6 +223,14 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 - 多字幕轨支持（一个视频多个 subtitle_file，切换）；字幕样式设置（字号等）
 - 转码兜底：ffmpeg 后台把 H.264 10-bit 等未验证源转为浏览器兼容 H.264
 - 播放页「继续/从头」选择；剧集自动连播
+
+### 6.4 开源发布准备（未开始）
+
+- 确定并添加开源许可证；没有 `LICENSE` 时，他人默认没有复用、修改或分发的授权。
+- 增加 GitHub Actions，在 Node 22 上持续运行 `npm test` 与 web build。
+- 新增 SECURITY、issue / PR 模板和 Code of Conduct，明确漏洞披露与协作路径。
+- 为 README 提供无版权风险的截图或短演示，并声明 macOS 为已验证平台；在实际验证后再承诺 Linux / Windows 支持。
+- 评估是否将本地 SQLite 中的 API key 改放入操作系统凭证库；公开发布前需先明确其本地存储和备份风险。
 
 ## 7. 开发约定
 

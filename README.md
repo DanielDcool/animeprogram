@@ -1,86 +1,115 @@
-# ことばアニメ
+# ことばアニメ / Kotoba Anime
 
-从“这季看什么”到“用这一句学什么”的本地动画网站：实时浏览当季/上季新番、搜索作品和官方播放入口，
-再用本地播放器隐藏字幕观看；暂停时显示当前句并做分词、查词、AI 语法讲解。
+**A local-first Japanese learning player for anime.** Find a show, watch your own local media with subtitles hidden by default, then pause on the line you missed to analyse it, look up words, get an AI explanation, and save it for review.
 
-## 准备
+> 中文：一个本地优先的日语动画学习播放器。先听、再暂停看当前句、分词查词和按需 AI 讲解，最后保存到生词本复习。
 
-1. Node 22+，ffmpeg（`brew install ffmpeg`）
-2. `npm install`
-3. 词典（可选但强烈推荐）：从 https://github.com/scriptin/jmdict-simplified/releases
-   下载 `jmdict-eng-*.json.zip`，解压为 `server/vendor/jmdict-eng.json`，然后：
-   ```bash
-   npm run import-jmdict -w server
-   ```
-4. AI 解说（可选）：在设置页选择 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini 后
-   填入对应 API key。DeepSeek 默认模型为 `deepseek-v4-flash`，OpenAI 为 `gpt-5.6-sol`，Gemini 为
-   `gemini-3.6-flash`，都可在同页修改。Gemini key 可在 [Google AI Studio](https://aistudio.google.com/apikey) 创建。
-   OpenAI 需要 [OpenAI Platform API key](https://platform.openai.com/api-keys)；ChatGPT / Codex 订阅本身
-   不提供可直接填入本应用的独立 key。
-5. 视频与字幕放入 `~/AnimeLibrary`（mkv/mp4 + 同名 `.srt`/`.ass`，`Show - 01.ja.srt` 形式也可；
-   没有外部字幕时会自动抽取 mkv 内嵌日语字幕）
-6. jimaku 字幕自动匹配（可选）：在 https://jimaku.cc 注册 → https://jimaku.cc/profile 复制 API key
-   → 填入设置页。没有系列映射时，媒体库会提示点「字幕を探す」为每部番选择一次对应作品；
-   之后同系列新剧集会自动按集数下载字幕（优先 .srt）。已有字幕的条目也可点「↺ 字幕」重新拉取。
-7. 本机资源下载（可选）：安装 Transmission（`brew install --cask transmission`），在
-   Transmission「Settings → Transfers → Default location」选择 `~/AnimeLibrary`，并让它接管 magnet 链接。
+Kotoba Anime is a personal, self-hosted web app. Your media files stay on your computer; the app does not host, proxy, or download video.
 
-## 启动
+## What you can do
+
+- Discover the current and previous anime season, search titles, and open official streaming or information links.
+- Learn from local `.mp4` / `.mkv` files with Japanese `.srt` / `.ass` subtitles. MKV files are remuxed when needed for browser playback.
+- Stay in listening mode by default: pause to reveal the current line, replay it, jump between lines, or open a transcript that follows playback.
+- Tokenize Japanese locally with Kuromoji and look up JMdict definitions.
+- Ask Anthropic, DeepSeek, OpenAI, or Google Gemini for a structured explanation only when you want one. Results are cached locally.
+- Save words and sentences, then export an Anki-compatible TSV file.
+- Optionally connect to Jimaku for subtitle matching, and hand a magnet link to your own local downloader. No downloader RPC, video transfer, or remote media lifecycle is built into the app.
+
+## Quick start (macOS)
+
+**Verified environment:** macOS, Node.js 22+, and FFmpeg. Linux may work but is not yet a supported release target.
 
 ```bash
+git clone <repository-url>
+cd animeprogram
+brew install ffmpeg
+npm ci
 npm start
 ```
-浏览器打开 http://localhost:5173：
 
-- 「見つける」显示当前季、上一季与“今季首先看 3 部”，也可按日文、罗马字或英文名搜索。
-- 作品详情列出 AniList 收录的官方播放/官网入口；点「ダウンロードを探す」会按作品标题和季度查询 Nyaa RSS，
-  自动排除明确标记为其他季度的结果，并优先排列整季、无需转换、H.264/AVC、1080p、合理体积、可信和
-  多字幕候选；可切换字幕付き/字幕なし/全部，点击候选的 magnet 后由本机 Transmission 打开确认窗口。
-- 「ライブラリ」递归监听 `~/AnimeLibrary`：整季子目录中的视频写入稳定后也会自动导入
-  （mkv 会自动 remux 成 mp4）；
-  「フォルダをスキャン」保留为未自动反映时的恢复入口。
+Open [http://localhost:5173](http://localhost:5173). The application creates its local database automatically and watches `~/AnimeLibrary` by default.
 
-下载的视频不会经过或保存到本应用服务器：Transmission 直接写入本机 `~/AnimeLibrary`。应用确认文件停止写入后
-自动加入媒体库；已有 Jimaku 映射时自动取得字幕，没有映射时只在媒体库内提示选择一次。自动取得失败会保留映射并
-显示重试按钮。只下载你有权获取的内容；
-Nyaa 的 `trusted` 标记只是站内元数据，不代表版权许可或绝对安全。
+To use a different media or data location, set these before starting:
 
-新番目录需要联网访问 AniList；即使 AniList 暂时不可用，本地媒体库、播放器和生词本仍能继续使用。
+```bash
+export MEDIA_DIR="$HOME/Movies/KotobaAnime"
+export DATA_DIR="$PWD/.local-data"
+npm start
+```
 
-## 快捷键（播放页）
+## Optional setup
 
-| 键 | 功能 |
-|----|------|
-| Space | 暂停并显示当前句（右侧自动分词查词）/ 继续（重新隐藏字幕）|
-| A | 回到本句开头重听（不显示字幕）；快速连按两次会回到上一句 |
-| ← / → | 上一句 / 下一句 |
-| D | 当前句 AI 深度讲解（只给原句中出现的日语汉字标注“漢字（かな）”，解释新增的文法术语不标读音；需在设置页配所选服务的 API key；同服务同模型同句缓存，不重复计费）|
-| S | 字幕常显开关（普通看番模式）|
-| T | 在「解析 / 字幕一覧」之间切换；打开列表会直接定位当前句，点列表中的句子会跳转、暂停并解析 |
-| [ / ] | 字幕偏移 ±100ms（持久保存）|
+### Japanese dictionary
 
-播放页中的快捷键提示也都是可点击按钮，和对应按键作用相同。
+For local word definitions, download a `jmdict-eng-*.json.zip` release from [JMdict Simplified](https://github.com/scriptin/jmdict-simplified/releases), extract it to `server/vendor/jmdict-eng.json`, then run:
 
-桌面端可拖动视频与解析面板之间的竖线调整宽度，也可聚焦竖线后按 ← / → 微调，宽度会自动保留。
-需要全屏时请点视频左上角「⛶ 全画面」；它会把应用字幕层一起带入全屏。
+```bash
+npm run import-jmdict -w server
+```
 
-## 生词本
+### AI explanations
 
-暂停解析时：词卡里点「☆ 保存」收藏单词（辞书形+读音+释义+例句），面板底部「☆ この文を保存」收藏整句
-（若已生成 AI 讲解会连中文翻译一起存）。顶部「単語帳」页面查看/删除，
-「Anki 用 TSV エクスポート」下载 vocab.tsv → Anki 里 文件→读入（分隔符 Tab、允许 HTML）即可变卡片。
+In **設定 / Settings**, choose Anthropic, DeepSeek, OpenAI, or Google Gemini and enter that provider's API key. Keys and explanation cache are stored only in the local SQLite database; do not commit keys or the `server/data/` directory.
 
-## 技术要点
+OpenAI requires an [OpenAI Platform API key](https://platform.openai.com/api-keys). A ChatGPT or Codex subscription by itself is not an API key.
 
-- `server/`：Fastify + better-sqlite3 + kuromoji + JMdict + AniList GraphQL + Anthropic / DeepSeek / OpenAI / Gemini API
-- `web/`：Vite + React，学习模式状态机是纯 reducer（`web/src/player/learningMode.ts`）
-- 当前 Mac 浏览器已验证可播放 remux 后的 H.265/HEVC Main 10；H.264 10-bit 等仍不兼容的源会标记
-  「要トランスコード」
-- 测试：`npm test`
-- AI 协作与开发上下文：先读 `AGENTS.md` 和 `docs/DEVELOPMENT.md`
+### Subtitles and local media
 
-## 资源边界与后续
+Put your media and matching Japanese subtitles in `MEDIA_DIR` (default: `~/AnimeLibrary`). Examples:
 
-官方播放入口与本机资源搜索在页面中分区。服务端只查询短暂缓存的公开 Nyaa RSS 元数据、校验 info hash
-并返回 magnet；不下载视频、不代理 BitTorrent 数据，也不控制删除/做种。目录监听只观察本机 `MEDIA_DIR`，
-仍不读取 Transmission 下载进度、不管理下载任务，也不绑定特定下载器。
+```text
+~/AnimeLibrary/Show - 01.mkv
+~/AnimeLibrary/Show - 01.ja.srt
+```
+
+External Japanese subtitles are preferred; otherwise the app attempts to extract an embedded Japanese subtitle track from MKV. Jimaku matching is optional and requires an API key you obtain from Jimaku.
+
+## Learning controls
+
+The on-screen control chips are clickable as well as keyboard shortcuts.
+
+| Key | Action |
+| --- | --- |
+| `Space` | Pause and reveal the current line / resume and hide it |
+| `A` | Replay the current line; quickly press it twice to go to the previous line |
+| `←` / `→` | Previous / next line |
+| `D` | Request an AI explanation of the paused line |
+| `S` | Toggle always-visible subtitles |
+| `T` | Toggle analysis and transcript; the transcript opens at the current line |
+| `[` / `]` | Adjust subtitle timing by −/+100 ms |
+
+On desktop, drag the divider between the player and analysis panel to resize it. Use the in-app full-screen button so subtitles remain visible in full screen.
+
+## Development
+
+```bash
+npm test
+npm run build -w web
+```
+
+The project uses a Fastify server in `server/` and a React/Vite client in `web/`. All browser requests go through `web/src/api.ts`; learning-mode state is kept in `web/src/player/learningMode.ts`.
+
+## Setting up with an AI coding agent
+
+Yes—an `AGENTS.md` file is becoming a useful, cross-tool convention for project-specific coding instructions. This repository has one at the root, plus a safe, command-by-command setup guide for an agent:
+
+1. Ask the agent to read [AGENTS.md](AGENTS.md), this README, and [docs/AI-SETUP.md](docs/AI-SETUP.md).
+2. Then give it: “Set up Kotoba Anime locally. Do not expose API keys, modify my media files, or commit changes unless I ask.”
+
+The guide is intentionally explicit about optional components, local data, verification, and actions that require confirmation.
+
+## Contributing
+
+Contributions are welcome once the project is publicly released. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and keep changes focused on reducing real learning friction rather than adding generic platform features.
+
+## Media, privacy, and legal boundary
+
+- Bring only media and subtitles you are authorized to use.
+- Your media stays in `MEDIA_DIR`; the app does not upload it.
+- The optional resource search only returns public metadata and a magnet handoff for your local downloader. It does not download, host, or proxy video.
+- API keys, viewing progress, vocabulary, mappings, and AI explanation cache are local application data. Back up or remove the SQLite data directory deliberately.
+
+## Open-source readiness
+
+Before publishing, the project needs a license choice, a public issue/PR workflow, CI, security disclosure policy, and screenshots or a short demo. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the current product roadmap.
