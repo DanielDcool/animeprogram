@@ -226,7 +226,7 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 
 ### 6.4 开源发布准备（未开始）
 
-- 确定并添加开源许可证；没有 `LICENSE` 时，他人默认没有复用、修改或分发的授权。
+- ~~确定并添加开源许可证。~~ **已完成（2026-08-04）**：采用 MIT，并在根目录加入 `LICENSE`；允许复用、修改与分发，同时保留署名和免责声明。
 - 增加 GitHub Actions，在 Node 22 上持续运行 `npm test` 与 web build。
 - 新增 SECURITY、issue / PR 模板和 Code of Conduct，明确漏洞披露与协作路径。
 - 为 README 提供无版权风险的截图或短演示，并声明 macOS 为已验证平台；在实际验证后再承诺 Linux / Windows 支持。

@@ -110,6 +110,10 @@ Contributions are welcome once the project is publicly released. Start with [CON
 - The optional resource search only returns public metadata and a magnet handoff for your local downloader. It does not download, host, or proxy video.
 - API keys, viewing progress, vocabulary, mappings, and AI explanation cache are local application data. Back up or remove the SQLite data directory deliberately.
 
+## License
+
+Kotoba Anime is released under the [MIT License](LICENSE).
+
 ## Open-source readiness
 
-Before publishing, the project needs a license choice, a public issue/PR workflow, CI, security disclosure policy, and screenshots or a short demo. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the current product roadmap.
+Before publishing, the project still needs a public issue/PR workflow, CI, a security disclosure policy, and screenshots or a short demo. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the current product roadmap.
