@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a focused improvement to the Japanese-learning workflow.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: Explain the learning friction first. Large changes involving a new external service, downloader control, account system, or media lifecycle management need maintainer discussion before implementation.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Learning problem
+      description: Which step is difficult today, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest change that would reduce that friction.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before opening this request.
+          required: true

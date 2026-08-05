@@ -1,0 +1,50 @@
+name: Bug report
+description: Report reproducible behavior that differs from the documented experience.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Kotoba Anime. Do not include API keys, private media filenames, subtitle contents, databases, or other personal data. For a security issue, use the private reporting path in SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      description: Paste `git rev-parse --short HEAD` or a release version.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Node.js version, browser, and FFmpeg version where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Safe logs or screenshots (optional)
+      description: Redact keys, local paths, media filenames, and personal information first.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and removed private data from this report.
+          required: true

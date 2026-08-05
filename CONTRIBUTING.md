@@ -26,6 +26,8 @@ Use Node.js 22+ and FFmpeg. See [docs/AI-SETUP.md](docs/AI-SETUP.md) for local-d
 - Verify UI changes in a real browser.
 - Do not commit media, SQLite data, dictionary dumps, generated build files, API keys, tokens, cookies, or personal information.
 - Update `README.md` for installation or user-facing changes, and `docs/DEVELOPMENT.md` for implementation status or decisions.
+- When installation, user-facing behavior, privacy, or legal wording changes, update all three README files in the same pull request: `README.md`, `README.zh-CN.md`, and `README.ja.md`.
+- Report a potential vulnerability privately as described in [SECURITY.md](SECURITY.md), rather than opening a public issue.
 
 ## Scope
 

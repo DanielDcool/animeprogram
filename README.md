@@ -1,10 +1,12 @@
 # ことばアニメ / Kotoba Anime
 
+[English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
+
 **A local-first Japanese learning player for anime.** Find a show, watch your own local media with subtitles hidden by default, then pause on the line you missed to analyse it, look up words, get an AI explanation, and save it for review.
 
 > 中文：一个本地优先的日语动画学习播放器。先听、再暂停看当前句、分词查词和按需 AI 讲解，最后保存到生词本复习。
 
-Kotoba Anime is a personal, self-hosted web app. Your media files stay on your computer; the app does not host, proxy, or download video.
+Kotoba Anime is an early-stage, self-hosted web app. Your media files stay on your computer; the app does not host, proxy, or download video.
 
 ## What you can do
 
@@ -21,7 +23,7 @@ Kotoba Anime is a personal, self-hosted web app. Your media files stay on your c
 **Verified environment:** macOS, Node.js 22+, and FFmpeg. Linux may work but is not yet a supported release target.
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/DanielDcool/animeprogram.git
 cd animeprogram
 brew install ffmpeg
 npm ci
@@ -101,7 +103,7 @@ The guide is intentionally explicit about optional components, local data, verif
 
 ## Contributing
 
-Contributions are welcome once the project is publicly released. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and keep changes focused on reducing real learning friction rather than adding generic platform features.
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and [SECURITY.md](SECURITY.md). Keep changes focused on reducing real learning friction rather than adding generic platform features.
 
 ## Media, privacy, and legal boundary
 
@@ -109,11 +111,12 @@ Contributions are welcome once the project is publicly released. Start with [CON
 - Your media stays in `MEDIA_DIR`; the app does not upload it.
 - The optional resource search only returns public metadata and a magnet handoff for your local downloader. It does not download, host, or proxy video.
 - API keys, viewing progress, vocabulary, mappings, and AI explanation cache are local application data. Back up or remove the SQLite data directory deliberately.
+- The server listens on `127.0.0.1` by default. Do not expose it to an untrusted network; API keys are currently stored in the local SQLite database in plaintext. See [SECURITY.md](SECURITY.md) for reporting and threat-model details.
 
 ## License
 
 Kotoba Anime is released under the [MIT License](LICENSE).
 
-## Open-source readiness
+## Project status
 
-Before publishing, the project still needs a public issue/PR workflow, CI, a security disclosure policy, and screenshots or a short demo. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the current product roadmap.
+The project is public and has CI plus contribution and security policies. It is verified on macOS; Linux and Windows are not yet supported release targets. A copyright-safe screenshot or short demo is still needed before broader promotion. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the current roadmap.
