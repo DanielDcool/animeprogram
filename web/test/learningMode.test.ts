@@ -4,6 +4,7 @@ import {
   reduce,
   currentCueIndex,
   replayTargetIndex,
+  analysisCueIndex,
   type LearnState,
 } from '../src/player/learningMode';
 import type { Cue } from '../src/types';
@@ -31,6 +32,16 @@ describe('replayTargetIndex', () => {
   it('replays the current cue after the window expires and does not go before the first cue', () => {
     expect(replayTargetIndex(3, 1_000, 1_500)).toBe(3);
     expect(replayTargetIndex(0, 1_000, 1_350)).toBe(-1);
+  });
+});
+
+describe('analysisCueIndex', () => {
+  it('keeps the selected line while that line is replaying', () => {
+    expect(analysisCueIndex(1, 1, false)).toBe(1);
+  });
+
+  it('moves to the current line when playback is paused there', () => {
+    expect(analysisCueIndex(0, 1, true)).toBe(1);
   });
 });
 

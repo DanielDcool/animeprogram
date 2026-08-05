@@ -7,6 +7,7 @@ import {
   reduce,
   currentCueIndex,
   replayTargetIndex,
+  analysisCueIndex,
   type LearnState,
   type LearnAction,
   type Effect,
@@ -36,6 +37,7 @@ export default function PlayerPage() {
   const [subError, setSubError] = useState(false);
   const [learn, setLearn] = useState<LearnState>(initialState);
   const [time, setTime] = useState(0);
+  const [selectedAnalysisCueIdx, setSelectedAnalysisCueIdx] = useState<number | null>(null);
   const [panelMode, setPanelMode] = useState<'analysis' | 'transcript'>('analysis');
   const [explainRequest, setExplainRequest] = useState({ id: 0, sentence: null as string | null });
   const [playerWidth, setPlayerWidth] = useState(() => normalizeStoredPlayerWidth(localStorage.getItem(PLAYER_WIDTH_KEY)));
@@ -58,6 +60,11 @@ export default function PlayerPage() {
   const cues = subs?.cues ?? [];
   const cueIdx = useMemo(() => currentCueIndex(cues, time), [cues, time]);
   const cue = cueIdx >= 0 ? cues[cueIdx] : null;
+  const analysisCue = selectedAnalysisCueIdx == null ? null : cues[selectedAnalysisCueIdx] ?? null;
+
+  useEffect(() => {
+    setSelectedAnalysisCueIdx((selectedCueIdx) => analysisCueIndex(selectedCueIdx, cueIdx, learn.paused));
+  }, [cueIdx, learn.paused]);
 
   const runEffects = useCallback((effects: Effect[]) => {
     const v = videoRef.current;
@@ -102,7 +109,7 @@ export default function PlayerPage() {
 
   function requestExplanation() {
     lastReplayAtRef.current = null;
-    const sentence = learn.paused && cue ? cue.text : null;
+    const sentence = analysisCue?.text ?? null;
     if (!sentence) return;
     setPanelMode('analysis');
     setExplainRequest((request) => ({ id: request.id + 1, sentence }));
@@ -274,16 +281,19 @@ export default function PlayerPage() {
             currentIdx={cueIdx}
             onSelect={(i) => {
               lastReplayAtRef.current = null;
+              setSelectedAnalysisCueIdx(i);
               dispatch({ type: 'SELECT', cueStart: cues[i].start });
               setPanelMode('analysis');
             }}
           />
         ) : (
           <AnalysisPanel
-            sentence={learn.paused && cue ? cue.text : null}
-            context={cueIdx >= 0 ? cues.slice(Math.max(0, cueIdx - 2), cueIdx + 3).map((c) => c.text) : []}
+            sentence={analysisCue?.text ?? null}
+            context={selectedAnalysisCueIdx != null && analysisCue
+              ? cues.slice(Math.max(0, selectedAnalysisCueIdx - 2), selectedAnalysisCueIdx + 3).map((c) => c.text)
+              : []}
             mediaId={mediaId}
-            positionSec={cue?.start ?? time}
+            positionSec={analysisCue?.start ?? time}
             explainRequest={explainRequest}
           />
         )}

@@ -68,3 +68,8 @@ export function replayTargetIndex(cueIdx: number, lastReplayAt: number | null, n
     ? cueIdx - 1
     : cueIdx;
 }
+
+/** 右側解析は、再生中も直前に選んだ句を保持し、一時停止した句だけを新しく選ぶ。 */
+export function analysisCueIndex(selectedCueIdx: number | null, cueIdx: number, paused: boolean): number | null {
+  return paused && cueIdx >= 0 ? cueIdx : selectedCueIdx;
+}

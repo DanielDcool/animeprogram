@@ -68,7 +68,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 |------|----------|
 | 媒体扫描：mkv 自动 remux 成 .play.mp4、抽内嵌字幕、外部 `.ja.srt` 优先 | media/scanner.ts |
 | H.265/HEVC Main 10 在当前 Mac 浏览器只 remux 不转码；H.264 10-bit 等不兼容源仍标记「要トランスコード」 | media/ffmpeg.ts decidePlayability |
-| 学习模式：默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显；[ ] 偏移±100ms；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
+| 学习模式：默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显；[ ] 偏移±100ms；右侧解析独立保持已选句，重听时不消失；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
 | 桌面播放器布局：视频/解析面板之间可拖动调宽并记住宽度；自定义全屏会将视频、状态和字幕层一起全屏 | PlayerPage + playerLayout.ts |
 | 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，打开即定位当前句，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
@@ -131,6 +131,8 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   退出全屏正常、错误日志为空。820px 以下继续使用上下布局。
 - 2026-08-03：播放器快捷键提示已改为可点击按钮；实测 Space 点击会暂停并显示字幕，连续点击 A 会从当前句
   回到上一句。打开字幕一覧时，当前第 14 条直接位于列表中部（`scrollTop=218.5`），浏览器控制台无错误。
+- 2026-08-06：暂停选中一句后点击 A 重听，播放器恢复播放且字幕维持原有显示规则；右侧解析仍保留该句、分词与操作按钮。
+  暂停到另一句时，解析才切换到新句。
 
 ## 4. 关键决策记录（为什么这么做）
 

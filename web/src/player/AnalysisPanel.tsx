@@ -3,7 +3,7 @@ import { api } from '../api';
 import type { Token, Explanation } from '../types';
 
 interface Props {
-  sentence: string | null;   // 一時停止中の現在の句。null = 再生中
+  sentence: string | null;   // 選択中の学習句。null = 未選択
   context: string[];
   mediaId: number;
   positionSec: number;

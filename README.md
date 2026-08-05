@@ -76,12 +76,14 @@ The on-screen control chips are clickable as well as keyboard shortcuts.
 | `Space` | Pause and reveal the current line / resume and hide it |
 | `A` | Replay the current line; quickly press it twice to go to the previous line |
 | `←` / `→` | Previous / next line |
-| `D` | Request an AI explanation of the paused line |
+| `D` | Request an AI explanation of the selected learning line |
 | `S` | Toggle always-visible subtitles |
 | `T` | Toggle analysis and transcript; the transcript opens at the current line |
 | `[` / `]` | Adjust subtitle timing by −/+100 ms |
 
 On desktop, drag the divider between the player and analysis panel to resize it. Use the in-app full-screen button so subtitles remain visible in full screen.
+
+The analysis panel keeps the selected line while you replay it, even when subtitles are hidden. It changes only after you pause on or select another line.
 
 ## Development
 
