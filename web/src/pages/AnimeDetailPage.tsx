@@ -72,7 +72,7 @@ export default function AnimeDetailPage() {
           <ResourceResults animeId={anime.id} />
 
           <section className="local-learning">
-            <div><p className="eyebrow">LOCAL LEARNING</p><h2>手元の動画で日本語を学ぶ</h2><p>合法的に入手した動画を <code>~/AnimeLibrary</code> に置けば、字幕検索・文解析・単語保存まで同じアプリで続けられます。</p></div>
+            <div><p className="eyebrow">LOCAL LEARNING</p><h2>手元の動画で日本語を学ぶ</h2><p>合法的に入手した動画を設定ページで指定したメディアフォルダに置けば、字幕検索・文解析・単語保存まで同じアプリで続けられます。</p></div>
             <Link className="primary-link" to="/library">ライブラリを開く</Link>
           </section>
         </article>

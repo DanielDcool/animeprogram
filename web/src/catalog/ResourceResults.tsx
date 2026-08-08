@@ -57,8 +57,8 @@ export default function ResourceResults({ animeId }: { animeId: number }) {
       <p className="eyebrow">LOCAL DOWNLOAD</p>
       <h2>ローカル用リソース</h2>
       <p className="download-explainer">
-        動画はこのサーバーではなく、この Mac のダウンロード先に保存されます。
-        Transmission などの保存先を <code>~/AnimeLibrary</code> にすると、完了後そのままライブラリへ追加できます。
+        動画はこのサーバーではなく、このコンピューターのダウンロード先に保存されます。
+        magnet 対応アプリの保存先を設定ページのメディアフォルダに合わせると、完了後そのままライブラリへ追加できます。
       </p>
 
       <div className="download-controls">

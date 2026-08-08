@@ -1,9 +1,13 @@
 {
   "name": "animeprogram",
   "private": true,
+  "engines": {
+    "node": ">=22 <23"
+  },
   "workspaces": ["server", "web"],
   "scripts": {
-    "start": "npm run dev -w server & npm run dev -w web & wait",
+    "start": "node scripts/start.mjs",
+    "verify:start": "node scripts/verify-start.mjs",
     "test": "npm test -w server && npm test -w web"
   }
 }

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Db } from '../../db.js';
 import { scanLibrary, realOps, type FfmpegOps } from './scanner.js';
@@ -8,6 +9,15 @@ interface Opts {
   mediaDir: string;
   ops?: FfmpegOps;
   onImported?: (mediaIds: number[]) => Promise<void> | void;
+}
+
+export function mediaFolder(mediaDir: string, filePath: string): string {
+  const root = path.resolve(mediaDir);
+  const parent = path.dirname(filePath);
+  const relative = path.relative(root, parent);
+  const outside = relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
+  if (outside) return path.basename(parent) || parent;
+  return relative && relative !== '.' ? relative : path.basename(root) || root;
 }
 
 export async function mediaRoutes(app: FastifyInstance, opts: Opts) {
@@ -29,6 +39,7 @@ export async function mediaRoutes(app: FastifyInstance, opts: Opts) {
     `).all() as any[];
     return rows.map((r) => ({
       id: r.id, series: r.series, episode: r.episode,
+      folder: mediaFolder(mediaDir, r.file_path),
       codecStatus: r.codec_status, playable: r.playable_path != null,
       hasSubtitle: !!r.has_subtitle, positionSec: r.position_sec,
       subtitleStatus: r.subtitle_status, subtitleError: r.subtitle_error,

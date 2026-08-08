@@ -23,7 +23,9 @@ beforeEach(() => {
 
 describe('GET /api/media', () => {
   it('lists media with progress and subtitle flag', async () => {
-    const id = db.prepare(`INSERT INTO media (series, episode, file_path, playable_path, codec_status) VALUES ('A',1,'/a.mkv','/a.play.mp4','remuxed')`).run().lastInsertRowid;
+    const file = path.join(dir, 'Series A', 'a.mkv');
+    const playable = path.join(dir, 'Series A', 'a.play.mp4');
+    const id = db.prepare(`INSERT INTO media (series, episode, file_path, playable_path, codec_status) VALUES ('A',1,?,?,'remuxed')`).run(file, playable).lastInsertRowid;
     db.prepare(`INSERT INTO subtitle_file (media_id, file_path, format) VALUES (?, '/a.ass', 'ass')`).run(id);
     db.prepare(`INSERT INTO progress (media_id, position_sec) VALUES (?, 42)`).run(id);
     const res = await makeApp().inject({ url: '/api/media' });
@@ -31,8 +33,17 @@ describe('GET /api/media', () => {
     const items = res.json();
     expect(items[0]).toMatchObject({
       series: 'A', episode: 1, codecStatus: 'remuxed', hasSubtitle: true, positionSec: 42,
-      subtitleStatus: 'ready', subtitleError: null,
+      subtitleStatus: 'ready', subtitleError: null, folder: 'Series A',
     });
+  });
+
+  it('uses the library name for files directly inside the media directory', async () => {
+    const file = path.join(dir, 'a.mkv');
+    db.prepare(`INSERT INTO media (series, file_path, codec_status) VALUES ('A',?,'direct')`).run(file);
+
+    const res = await makeApp().inject({ url: '/api/media' });
+
+    expect(res.json()[0].folder).toBe(path.basename(dir));
   });
 
   it('exposes selection, downloading and retryable subtitle states', async () => {

@@ -112,7 +112,7 @@ describe('Nyaa RSS resource provider', () => {
     const results = parseNyaaRss(rss(
       item({ title: '[A] Show [720p][HEVC][10-bit]', hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' })
       + item({ title: '[B] Show [2160p][AV1]', hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }),
-    ));
+    ), {}, 'darwin');
 
     expect(results.find((entry) => entry.releaseGroup === 'A')).toMatchObject({
       resolution: '720p', codec: 'H.265', needsTranscode: false,
@@ -120,6 +120,14 @@ describe('Nyaa RSS resource provider', () => {
     expect(results.find((entry) => entry.releaseGroup === 'B')).toMatchObject({
       resolution: '2160p', codec: 'AV1', needsTranscode: true,
     });
+  });
+
+  it('warns that H.265 may need conversion on Windows', () => {
+    const [result] = parseNyaaRss(rss(
+      item({ title: '[A] Show [1080p][HEVC][10-bit]' }),
+    ), {}, 'win32');
+
+    expect(result).toMatchObject({ codec: 'H.265', needsTranscode: true });
   });
 
   it('marks 10-bit H.264 as needing conversion and prefers an 8-bit season pack', () => {

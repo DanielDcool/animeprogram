@@ -82,7 +82,7 @@ describe('scanLibrary', () => {
         streams: [{ index: 0, codec_type: 'video', codec_name: 'hevc', pix_fmt: 'yuv420p10le' }],
       }),
     };
-    await scanLibrary(db, dir, hevcOps);
+    await scanLibrary(db, dir, hevcOps, 'darwin');
     const media: any = db.prepare('SELECT * FROM media').get();
     expect(media.codec_status).toBe('remuxed');
     expect(fs.existsSync(media.playable_path)).toBe(true);
@@ -103,12 +103,29 @@ describe('scanLibrary', () => {
       }),
     };
 
-    const result = await scanLibrary(db, dir, hevcOps);
+    const result = await scanLibrary(db, dir, hevcOps, 'darwin');
 
     expect(result.importedIds).toEqual([id]);
     const media: any = db.prepare('SELECT * FROM media WHERE id=?').get(id);
     expect(media.codec_status).toBe('remuxed');
     expect(fs.existsSync(media.playable_path)).toBe(true);
+  });
+
+  it('keeps hevc marked as needing conversion on Windows', async () => {
+    const dir = tmpLib(['Show - 05.mkv']);
+    const db = createDb(':memory:');
+    const hevcOps: FfmpegOps = {
+      ...fakeOps,
+      probe: async () => ({
+        streams: [{ index: 0, codec_type: 'video', codec_name: 'hevc', pix_fmt: 'yuv420p10le' }],
+      }),
+    };
+
+    await scanLibrary(db, dir, hevcOps, 'win32');
+
+    const media: any = db.prepare('SELECT * FROM media').get();
+    expect(media.codec_status).toBe('transcode_needed');
+    expect(media.playable_path).toBeNull();
   });
 
   it('does not record probe failures and can import the file on retry', async () => {

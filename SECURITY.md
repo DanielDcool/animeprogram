@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Kotoba Anime has not made a tagged release yet. Security fixes are made on the current default branch (`master`); please update to its latest commit before reporting an issue.
+tanku Anime has not made a tagged release yet. Security fixes are made on the current default branch (`master`); please update to its latest commit before reporting an issue.
 
 ## Reporting a vulnerability
 
@@ -24,4 +24,4 @@ Do not include API keys, media files, private filenames, SQLite databases, or ot
 
 ## Out of scope
 
-The project does not operate a video-hosting, downloader, or account service. Reports about a third-party media source, downloader, or AI provider should be sent to that provider unless they demonstrate a vulnerability in Kotoba Anime itself.
+The project does not operate a video-hosting, downloader, or account service. Reports about a third-party media source, downloader, or AI provider should be sent to that provider unless they demonstrate a vulnerability in tanku Anime itself.

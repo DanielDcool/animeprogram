@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { EventEmitter } from 'node:events';
 import { createDb } from '../src/db.js';
 import type { ScanResult } from '../src/modules/media/scanner.js';
 import { createMediaDirectoryWatcher } from '../src/modules/media/watcher.js';
@@ -135,5 +136,44 @@ describe('createMediaDirectoryWatcher', () => {
 
     expect(scan).toHaveBeenCalledTimes(2);
     expect(db.prepare('SELECT COUNT(*) c FROM media').get()).toEqual({ c: 1 });
+  });
+
+  it('falls back to periodic reconciliation when the directory watcher fails', async () => {
+    const dir = tmpDir();
+    const db = createDb(':memory:');
+    const fsWatcher = Object.assign(new EventEmitter(), { close: vi.fn() });
+    const log = { error: vi.fn() };
+    const watcher = createMediaDirectoryWatcher({
+      db,
+      mediaDir: dir,
+      watchFactory: vi.fn(() => fsWatcher as unknown as fs.FSWatcher),
+      log,
+    });
+
+    await watcher.start();
+    fsWatcher.emit('error', new Error('watch unavailable'));
+    await watcher.reconcileNow();
+    watcher.stop();
+
+    expect(fsWatcher.close).toHaveBeenCalled();
+    expect(log.error).toHaveBeenCalledWith('media directory watcher failed; periodic reconciliation remains active');
+  });
+
+  it('starts periodic reconciliation when the operating system cannot create a watcher', async () => {
+    const dir = tmpDir();
+    const db = createDb(':memory:');
+    const log = { error: vi.fn() };
+    const watcher = createMediaDirectoryWatcher({
+      db,
+      mediaDir: dir,
+      watchFactory: vi.fn(() => { throw new Error('watch unavailable'); }),
+      log,
+    });
+
+    await expect(watcher.start()).resolves.toBeUndefined();
+    await watcher.reconcileNow();
+    watcher.stop();
+
+    expect(log.error).toHaveBeenCalledWith('media directory watcher failed; periodic reconciliation remains active');
   });
 });

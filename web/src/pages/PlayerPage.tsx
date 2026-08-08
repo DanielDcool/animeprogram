@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../api';
 import type { SubtitleData } from '../types';
 import {
@@ -21,12 +21,16 @@ import {
   playerWidthFromPointer,
   resizePlayerWidthByKey,
 } from '../player/playerLayout';
+import { linkedPlaybackPosition, playbackStartPosition } from '../player/playbackPosition';
 
 const PLAYER_WIDTH_KEY = 'player-main-width';
 
 export default function PlayerPage() {
   const { id } = useParams();
   const mediaId = Number(id);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const initialSearch = useMemo(() => location.search, [mediaId]);
   const pageRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
@@ -56,6 +60,32 @@ export default function PlayerPage() {
   useEffect(() => {
     api.subtitles(mediaId).then(setSubs).catch(() => setSubError(true));
   }, [mediaId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let removeMetadataListener = () => {};
+    api.getProgress(mediaId).then(({ positionSec }) => {
+      if (cancelled) return;
+      const video = videoRef.current;
+      if (!video) return;
+      const start = playbackStartPosition(initialSearch, positionSec);
+      const applyStart = () => {
+        if (cancelled) return;
+        video.currentTime = start;
+        setTime(start);
+      };
+      if (video.readyState >= 1) applyStart();
+      else {
+        video.addEventListener('loadedmetadata', applyStart, { once: true });
+        removeMetadataListener = () => video.removeEventListener('loadedmetadata', applyStart);
+      }
+      if (linkedPlaybackPosition(initialSearch) != null) navigate(`/play/${mediaId}`, { replace: true });
+    }).catch(console.error);
+    return () => {
+      cancelled = true;
+      removeMetadataListener();
+    };
+  }, [mediaId, initialSearch, navigate]);
 
   const cues = subs?.cues ?? [];
   const cueIdx = useMemo(() => currentCueIndex(cues, time), [cues, time]);
@@ -120,7 +150,7 @@ export default function PlayerPage() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select, button, a, [contenteditable="true"]')) return;
       switch (e.code) {
-        case 'Space': e.preventDefault(); togglePause(); break;
+        case 'Space': e.preventDefault(); if (!e.repeat) togglePause(); break;
         case 'KeyA': if (!e.repeat) replayCue(); break;
         case 'ArrowLeft': e.preventDefault(); jumpCue(-1); break;
         case 'ArrowRight': e.preventDefault(); jumpCue(1); break;
@@ -144,14 +174,23 @@ export default function PlayerPage() {
     setSubs(fresh);
   }
 
-  // 視聴位置の保存（5 秒毎）
+  const saveVideoPosition = useCallback((video: HTMLVideoElement | null) => {
+    if (video && Number.isFinite(video.currentTime) && video.currentTime > 0) {
+      void api.saveProgress(mediaId, video.currentTime);
+    }
+  }, [mediaId]);
+
+  // 視聴位置の保存（5 秒毎 + 一時停止/ページ移動時）
   useEffect(() => {
     const t = setInterval(() => {
       const v = videoRef.current;
-      if (v && !v.paused) api.saveProgress(mediaId, v.currentTime);
+      if (v && !v.paused) saveVideoPosition(v);
     }, 5000);
-    return () => clearInterval(t);
-  }, [mediaId]);
+    return () => {
+      clearInterval(t);
+      saveVideoPosition(videoRef.current);
+    };
+  }, [saveVideoPosition]);
 
   const subtitleVisible = learn.alwaysOn || learn.revealed;
 
@@ -212,9 +251,23 @@ export default function PlayerPage() {
             controls
             controlsList="nofullscreen"
             autoPlay
+            onKeyDown={(e) => {
+              if (e.code !== 'Space') return;
+              e.preventDefault();
+              e.stopPropagation();
+              if (!e.repeat) togglePause();
+            }}
+            onKeyUp={(e) => {
+              if (e.code !== 'Space') return;
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
             onPlay={() => dispatch({ type: 'EXTERNAL_PLAY' })}
-            onPause={() => dispatch({ type: 'EXTERNAL_PAUSE' })}
+            onPause={(e) => {
+              saveVideoPosition(e.currentTarget);
+              dispatch({ type: 'EXTERNAL_PAUSE' });
+            }}
           />
           <SubtitleOverlay text={cue?.text ?? null} visible={subtitleVisible} />
         </div>

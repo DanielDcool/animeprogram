@@ -2,6 +2,7 @@ export type SubtitleStatus = 'ready' | 'needs_mapping' | 'downloading' | 'failed
 
 export interface MediaItem {
   id: number;
+  folder: string;
   series: string;
   episode: number | null;
   codecStatus: string;
@@ -35,6 +36,9 @@ export interface Explanation {
   translation: string; structure: string;
   expressions: { expression: string; meaning: string }[];
   nuance: string;
+}
+export interface VocabDetail extends VocabItem {
+  aiExplanation: Explanation | null;
 }
 
 export type SeasonName = 'WINTER' | 'SPRING' | 'SUMMER' | 'FALL';

@@ -5,6 +5,7 @@ import { countNeedsMapping, subtitleAction } from '../src/library/subtitleView.j
 function item(subtitleStatus: SubtitleStatus): MediaItem {
   return {
     id: 1,
+    folder: 'AnimeLibrary',
     series: 'Show',
     episode: 1,
     codecStatus: 'direct',

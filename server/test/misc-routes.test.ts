@@ -1,11 +1,22 @@
 import { describe, it, expect } from 'vitest';
+import path from 'node:path';
 import Fastify from 'fastify';
 import { createDb } from '../src/db.js';
 import { miscRoutes } from '../src/modules/misc/routes.js';
 
-function makeApp(db = createDb(':memory:')) {
+function makeApp(
+  db = createDb(':memory:'),
+  opts: { mediaDir?: string; defaultMediaDir?: string; mediaDirOverridden?: boolean } = {},
+) {
   const app = Fastify();
-  app.register(miscRoutes, { db });
+  const defaultMediaDir = path.resolve('AnimeLibrary');
+  app.register(miscRoutes, {
+    db,
+    mediaDir: defaultMediaDir,
+    defaultMediaDir,
+    mediaDirOverridden: false,
+    ...opts,
+  });
   return { app, db };
 }
 
@@ -18,9 +29,72 @@ describe('progress', () => {
     const row: any = db.prepare('SELECT position_sec FROM progress WHERE media_id=?').get(id);
     expect(row.position_sec).toBe(99);
   });
+
+  it('returns the saved position or zero for an unwatched media item', async () => {
+    const { app, db } = makeApp();
+    const watchedId = db.prepare(`INSERT INTO media (series, file_path) VALUES ('A','/a')`).run().lastInsertRowid;
+    const unwatchedId = db.prepare(`INSERT INTO media (series, file_path) VALUES ('B','/b')`).run().lastInsertRowid;
+    await app.inject({ method: 'PUT', url: `/api/media/${watchedId}/progress`, payload: { positionSec: 301.25 } });
+
+    const watched = await app.inject({ url: `/api/media/${watchedId}/progress` });
+    const unwatched = await app.inject({ url: `/api/media/${unwatchedId}/progress` });
+
+    expect(watched.json()).toEqual({ positionSec: 301.25 });
+    expect(unwatched.json()).toEqual({ positionSec: 0 });
+  });
 });
 
 describe('settings', () => {
+  it('returns the active and default media directories', async () => {
+    const defaultMediaDir = path.resolve('default-anime');
+    const mediaDir = path.resolve('saved-anime');
+    const { app } = makeApp(createDb(':memory:'), { mediaDir, defaultMediaDir });
+
+    const res = await app.inject({ url: '/api/settings' });
+
+    expect(res.json()).toMatchObject({
+      media_dir: mediaDir,
+      default_media_dir: defaultMediaDir,
+      media_dir_overridden: false,
+    });
+  });
+
+  it('stores an absolute media directory for the next start', async () => {
+    const { app, db } = makeApp();
+    const mediaDir = path.resolve('another-anime-library');
+
+    const put = await app.inject({
+      method: 'PUT', url: '/api/settings', payload: { media_dir: mediaDir },
+    });
+
+    expect(put.statusCode).toBe(200);
+    expect(db.prepare('SELECT value FROM settings WHERE key=?').pluck().get('media_dir')).toBe(mediaDir);
+  });
+
+  it('rejects a relative media directory', async () => {
+    const { app, db } = makeApp();
+
+    const put = await app.inject({
+      method: 'PUT', url: '/api/settings', payload: { media_dir: 'relative/folder' },
+    });
+
+    expect(put.statusCode).toBe(400);
+    expect(put.json().code).toBe('INVALID_MEDIA_DIR');
+    expect(db.prepare('SELECT value FROM settings WHERE key=?').pluck().get('media_dir')).toBeUndefined();
+  });
+
+  it('does not replace an active MEDIA_DIR environment override', async () => {
+    const { app, db } = makeApp(createDb(':memory:'), { mediaDirOverridden: true });
+
+    const put = await app.inject({
+      method: 'PUT', url: '/api/settings', payload: { media_dir: path.resolve('ignored') },
+    });
+
+    expect(put.statusCode).toBe(409);
+    expect(put.json().code).toBe('MEDIA_DIR_OVERRIDDEN');
+    expect(db.prepare('SELECT value FROM settings WHERE key=?').pluck().get('media_dir')).toBeUndefined();
+  });
+
   it('PUT then GET, api key masked in GET', async () => {
     const { app } = makeApp();
     await app.inject({ method: 'PUT', url: '/api/settings', payload: {

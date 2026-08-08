@@ -7,6 +7,7 @@ import type {
   ResourceSearchResponse,
   SubtitleData,
   Token,
+  VocabDetail,
   VocabItem,
 } from './types';
 
@@ -26,7 +27,8 @@ export const api = {
   explain: (text: string, context: string[]) =>
     fetch('/api/explain', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, context }) }).then((r) => j<{ cached: boolean; explanation: Explanation }>(r)),
   saveProgress: (id: number, positionSec: number) =>
-    fetch(`/api/media/${id}/progress`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ positionSec }) }),
+    fetch(`/api/media/${id}/progress`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ positionSec }), keepalive: true }),
+  getProgress: (id: number) => fetch(`/api/media/${id}/progress`).then((r) => j<{ positionSec: number }>(r)),
   jimakuCandidates: (id: number) =>
     fetch(`/api/media/${id}/jimaku/candidates`).then((r) =>
       j<{ mappingEntryId: number | null; candidates: { id: number; name: string; englishName: string | null; japaneseName: string | null }[] }>(r)),
@@ -38,12 +40,14 @@ export const api = {
   }) =>
     fetch('/api/vocab', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(item) }).then((r) => j<{ saved: boolean }>(r)),
   listVocab: () => fetch('/api/vocab').then((r) => j<VocabItem[]>(r)),
+  getVocab: (id: number) => fetch(`/api/vocab/${id}`).then((r) => j<VocabDetail>(r)),
   deleteVocab: (id: number) => fetch(`/api/vocab/${id}`, { method: 'DELETE' }).then((r) => j(r)),
   getSettings: () => fetch('/api/settings').then((r) => j<{
     ai_provider: 'anthropic' | 'deepseek' | 'openai' | 'gemini'; ai_model: string;
     anthropic_api_key_set: boolean; deepseek_api_key_set: boolean; openai_api_key_set: boolean;
     gemini_api_key_set: boolean;
     jimaku_api_key_set: boolean;
+    media_dir: string; default_media_dir: string; media_dir_overridden: boolean;
   }>(r)),
   saveSettings: (s: Record<string, string>) =>
     fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(s) }).then((r) => j(r)),

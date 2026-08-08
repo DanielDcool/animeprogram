@@ -6,7 +6,7 @@
 > `docs/superpowers/plans/2026-07-21-jp-learning-player-mvp.md`（MVP 实现计划，已全部完成）。
 > 动画发现功能见 `docs/superpowers/specs/2026-07-22-anime-discovery-design.md` 与对应 plan。
 >
-> 最后校对：2026-08-06。
+> 最后校对：2026-08-08。
 
 ## 0. 如何使用这份文档
 
@@ -32,7 +32,7 @@
 ```
 server/src/
   index.ts               Fastify 启动 + 全部路由注册
-  config.ts              端口 / MEDIA_DIR(~/AnimeLibrary) / DATA_DIR(server/data)
+  config.ts              端口 / 媒体目录默认值与 MEDIA_DIR 优先级 / DATA_DIR(server/data)
   db.ts                  better-sqlite3 打开 + 全部建表（IF NOT EXISTS，改表结构直接加在这里）
   modules/
     media/     filename.ts(文件名→series/episode) ffmpeg.ts(probe/remux命令,纯函数+执行分离)
@@ -60,28 +60,28 @@ web/src/
 
 SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jimaku_mapping, subtitle_sync_state, vocab`
 （settings 存 `ai_provider` / `anthropic_api_key` / `deepseek_api_key` / `openai_api_key` / `gemini_api_key` /
-`jimaku_api_key` / `ai_model`，凭证值不得进入日志、测试或文档）。
+`jimaku_api_key` / `ai_model` / `media_dir`，凭证值不得进入日志、测试或文档）。
 
 ## 3. 已完成功能
 
 | 功能 | 关键位置 |
 |------|----------|
 | 媒体扫描：mkv 自动 remux 成 .play.mp4、抽内嵌字幕、外部 `.ja.srt` 优先 | media/scanner.ts |
-| H.265/HEVC Main 10 在当前 Mac 浏览器只 remux 不转码；H.264 10-bit 等不兼容源仍标记「要トランスコード」 | media/ffmpeg.ts decidePlayability |
+| H.265/HEVC Main 10 只在已验证的 macOS 浏览器路径 remux；Windows/Linux 保守标记「要トランスコード」，H.264 10-bit 等不兼容源同样不放行 | media/ffmpeg.ts decidePlayability |
 | 学习模式：默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显；[ ] 偏移±100ms；右侧解析独立保持已选句，重听时不消失；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
 | 桌面播放器布局：视频/解析面板之间可拖动调宽并记住宽度；自定义全屏会将视频、状态和字幕层一起全屏 | PlayerPage + playerLayout.ts |
 | 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，打开即定位当前句，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
 | AI 深度讲解：D 键，设置页可选 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini；统一输出{翻译/语法结构/表现/语气}，只给原句中出现的日语汉字标读音，解释新增术语不标；按格式版本/服务/模型/句子缓存 | ai/explain.ts |
 | jimaku 字幕匹配：候选选择一次→jimaku_mapping 记住→按 episode 自动下载(.srt优先,跳过压缩包) | jimaku/* |
-| 生词本：词/句收藏（带出处+时间戳，去重），単語帳页面，Anki TSV 导出 | vocab/routes.ts + VocabPage |
-| 观看进度：5 秒一存，媒体库显示「続き」 | misc/routes.ts |
+| 生词本：词/句收藏（带出处+时间戳，去重），详情页显示本地释义、既有 AI 缓存和精准播放链接，Anki TSV 导出 | vocab/routes.ts + VocabPage + VocabDetailPage |
+| 观看进度：5 秒一存，暂停/离页补存；重新进入自动恢复，带 `?t=` 的生词链接一次性优先 | misc/routes.ts + playbackPosition.ts + PlayerPage |
 | 动画发现：首页实时显示当前季/上季、学习向 3 部推荐、日/英/罗马字搜索、响应式卡片 | catalog/* + DiscoverPage |
 | 作品详情：简介/评分/制作公司、AniList HTTPS 官方播放与官网链接、本地媒体库入口 | AnimeDetailPage |
 | 本机下载交接：按季度过滤错季结果，整季/可直接播放/1080p/可信/多字幕智能排序，再用合法 magnet 交给本机下载器 | resource/* + ResourceResults |
-| 本地媒体自动衔接：监听 MEDIA_DIR，文件稳定后自动扫描；已有 Jimaku 映射自动取字幕，无映射/失败在媒体库非打断提示 | media/watcher.ts + jimaku/sync.ts + LibraryPage |
+| 本地媒体自动衔接：设置页可保存媒体目录，监听稳定文件后自动扫描；媒体库按相对目录分组且每组可独立折叠；已有 Jimaku 映射自动取字幕，无映射/失败时非打断提示 | misc/routes.ts + media/watcher.ts + jimaku/sync.ts + LibraryPage |
 
-**已验证基线（截至 2026-08-02）**：
+**已验证基线（截至 2026-08-08）**：
 
 - jimaku 用真实 key 联调通过：《葬送のフリーレン》第 1 话字幕真实下载并解析出 265 句；测试媒体已清理，系列映射保留。
 - 生词本在浏览器中完成“收藏单词 + 收藏句子 → 列表展示 → TSV 导出”链路；演示数据已清理。
@@ -110,7 +110,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   可播放 MP4。Jimaku 按前半 1426、后半 3547、特典 3546 分段取得 24 份日语 SRT，每集解析
   228–462 句。第 1/12/23 集真实播放页均为 1920×1080、`readyState=4`、无媒体错误；点字幕句可跳转、
   暂停、显示并分词。
-- 自动测试基线为 server 113 个、web 23 个；server/web TypeScript noEmit 与 web production build 通过。
+- 自动测试基线为 server 130 个、web 32 个；server/web TypeScript noEmit 与 web production build 通过。
   后续以实际 `npm test` 输出为准，不要只依赖这个数字。
 - 2026-08-01：播放器实际验证 DeepSeek `deepseek-v4-flash` 能生成四段式日语解说；同一字幕中的
   `こもる` 词典释义因异体字导致的重复已按释义去重，界面只显示一次。
@@ -133,12 +133,34 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   回到上一句。打开字幕一覧时，当前第 14 条直接位于列表中部（`scrollTop=218.5`），浏览器控制台无错误。
 - 2026-08-06：暂停选中一句后点击 A 重听，播放器恢复播放且字幕维持原有显示规则；右侧解析仍保留该句、分词与操作按钮。
   暂停到另一句时，解析才切换到新句。
+- 2026-08-07：完成 Windows 兼容审计与最小修复。根 `npm start` 不再使用 POSIX 的 `& wait`，改由 Node
+  直接启动 tsx/Vite CLI；新增 `npm run verify:start`，用临时数据目录和随机本地端口实际检查 server、web、
+  `/api/health`、SQLite 与目录 watcher。CI 矩阵加入 `windows-latest`。本机 macOS 启动烟测已通过；Windows CI
+  首次结果需在本批改动推送后确认，Windows 实机媒体播放仍未宣称完成。
+- 2026-08-08：在一台新的 Windows 远程主机上仅给出 README 中的一句安装指令完成首次安装。WinGet 的移动
+  `OpenJS.NodeJS.LTS` 别名当时解析为 Node 24，导致锁定的 `better-sqlite3` 回退到本地 C++ 编译；改用 fnm
+  安装并启用 Node 22.23.2 后，`npm ci` 正常完成。FFmpeg 9.0、后端健康接口和 Vite 页面均验证通过，过程中
+  未播放媒体或声音。该次克隆的 GitHub 默认分支仍是旧版，根启动脚本含 POSIX 语法，因此临时用两个本机
+  PowerShell 进程启动；本批跨平台启动改动推送后，仍需用全新目录复测公开仓库的单一 `npm start`。
+- 2026-08-08：设置页显示实际媒体目录与默认目录，可保存新的绝对路径并在下次启动时生效；`MEDIA_DIR`
+  环境变量仍保持最高优先级且会锁定页面输入。设置动作只写配置，不创建、移动或删除媒体。媒体列表接口只返回
+  相对于媒体根目录的文件夹标签，前端按标签分组且每组可独立折叠，不暴露完整本地文件路径。折叠状态在媒体库
+  的自动刷新期间保持，离开页面后不持久化。
+- 2026-08-08：生词可进入详情页查看保存释义、来源句和已有 AI 缓存；来源链接携带句子时间。播放器重新进入时
+  读取 SQLite 观看进度，时间链接只在首次进入时覆盖进度；暂停和离页会补存当前位置。视频获得焦点时 Space
+  由视频元素单独拦截并阻止冒泡，修复原生控制与全局快捷键各执行一次造成的“暂停后立即继续”。
 
 ## 4. 关键决策记录（为什么这么做）
 
 - **本地 Web 应用而非 Electron/mpv 插件**：开发快、UI 灵活、用户可远程访问；用户确认过。
+- **品牌名为 `tanku Anime`**：导航、浏览器标题、当前 README 与协作政策统一使用该展示名；仓库名、npm workspace 名和历史设计文档继续保留 `animeprogram` / 原名称，以免破坏既有 clone 地址、安装命令和历史事实。
+- **启动命令必须跨平台且只有一个**：用户始终运行 `npm start`。根脚本用 Node 直接解析并启动 workspace 中的
+  tsx 与 Vite CLI，不经过 Bash、`cmd.exe` 或 `.cmd` shim，因此不依赖 `&`、`wait` 或 shell 引号规则。
+- **媒体目录优先级固定**：`MEDIA_DIR` 环境变量 > 设置页保存在 SQLite 的 `media_dir` > 用户主目录中的
+  `AnimeLibrary`。设置页修改只在下次启动时生效，避免运行中重建 watcher 与扫描任务；不会自动迁移旧媒体或清理数据库记录。
 - **mkv 处理用 remux 而非转码**：H.264 与已在当前 Mac 浏览器验证的 HEVC Main 10 都只换封装；
-  视频流原样复制、音轨统一转 AAC，字幕轨单独走统一管线。H.264 10-bit 等未验证编码不冒险放行。
+  视频流原样复制、音轨统一转 AAC，字幕轨单独走统一管线。Windows 的 HEVC 支持取决于系统版本、硬件、
+  扩展和浏览器，不能从服务端可靠判断，因此 Windows/Linux 当前一律提示需要转换；H.264 10-bit 也不冒险放行。
 - **AI 引擎分层**：本地分词零成本秒出（每次暂停都跑），AI 解说只在按 D 时调用且缓存；当前支持
   Anthropic、DeepSeek、OpenAI 与 Gemini。DeepSeek 按官方 JSON mode 调用，OpenAI 按 Responses API、
   Gemini 按 Interactions API 的严格 JSON Schema 调用；Gemini 请求关闭服务端保存。设置中所谓“Codex key”
@@ -157,22 +179,26 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   本机签名验证也不受信任，因此不绕过系统安全检查；未来若签名恢复仍可直接作为 magnet 处理器。构造链接时
   `xt=urn:btih:<hash>` 必须保持原始协议格式，只编码 `dn`，以兼容 Transmission 的 macOS URL 处理器。
 - **自动衔接仍不绑定下载器**：`fs.watch` 只作唤醒，30 秒周期对账兜底；文件大小与 mtime 连续 15 秒
-  不变后才扫描。scanner 探测失败不入库，之后可重试。Jimaku 只在已有人工映射时自动串行请求；没有映射
+  不变后才扫描；watcher 在 Windows 等平台报错时关闭事件监听，但保留周期对账。scanner 探测失败不入库，之后可重试。Jimaku 只在已有人工映射时自动串行请求；没有映射
   不猜测、不弹窗，失败保留映射和脱敏原因。手动扫描继续作为恢复入口。
 - **Nyaa 候选先按季度收窄再排序**：从 AniList 日文/罗马字/英文标题中的 `II/III`、`S02/S03`、
   `Season 2/3`、`第2期/第3期` 推断季度，无标记视为第一季；先用 `S01/S02` 查询，解析完整 RSS 后过滤
   错季，再按整季包、无需转换、H.264/AVC、1080p、合理体积、非 remake、可信标记、多字幕、做种数的
   顺序取前 20 条。H.264 10-bit 同样视为需转换，避免只看编码名称误判浏览器兼容性。
 - **better-sqlite3 锁 v11**：v13 prebuilt 在这台 Mac(arm64, Node 22.12) `new Database()` 直接 segfault。**不要升级**。
+  v11.10.0 官方 release 同时提供 Node ABI 127（Node 22）的 Windows x64 与 arm64 prebuild；Windows CI 启动烟测
+  会实际创建 SQLite。若用户机器仍回退到本地编译，先报告错误，不自动安装 Visual Studio Build Tools。
 - **npm 安装**：用户 ~/.npmrc 走 Clash 代理(127.0.0.1:7890)，代理没开时一切 install 失败；
   用 `npm install --userconfig /dev/null --registry https://registry.npmjs.org ...` 绕过，别改全局配置。
 
 ## 5. 已知小问题 / 待打磨
 
 - jimaku_mapping.entry_name 存的是 ID 字符串而非作品名（仅备注字段，不影响功能，顺手可修）
-- 视频自然播完时面板行为、原生控制条 Space 与快捷键 Space 可能双触发（实测未出问题，留意）
+- 视频自然播完时面板行为尚未单独定义（Space 双触发已于 2026-08-08 修复）
 - 「続き」需 positionSec>30 才显示；播放页尚无「从头开始/继续」选择
 - H.264 10-bit 等当前浏览器仍不兼容的源没有后台转码兜底，只提示换源
+- Windows 实机尚未完成“FFmpeg 探测/重封装 → 浏览器播放真实媒体 → 外部字幕”全链路；当前 CI 覆盖依赖、
+  测试、构建、双进程启动、SQLite、目录 watcher、网页和健康接口。推广时必须保留这个区别。
 - AniList 的作品简介多数是英文，首版不自动翻译；后续需真实使用确认是否值得接入缓存翻译
 - 编辑推荐理由按 AniList ID 本地维护；新季度若没有配置，会自动退化为本季人气前三而无定制理由
 - 新番目录依赖网络与 AniList 可用性；当前只有 10 分钟进程内缓存，服务重启后不会离线保留
@@ -231,17 +257,21 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 - ~~确定并添加开源许可证。~~ **已完成（2026-08-04）**：采用 MIT，并在根目录加入 `LICENSE`；允许复用、修改与分发，同时保留署名和免责声明。
 - **已完成（2026-08-06）**：增加 Node 22 GitHub Actions CI（`npm test` + web build）、Dependabot、`SECURITY.md`、`CODE_OF_CONDUCT.md` 和 Issue / PR 模板；贡献约定已要求中、日、英 README 在用户可见改动时同步更新。
 - **已完成（2026-08-06）**：README 现有英文主入口、简体中文与日文版本，明确公开仓库地址、macOS 已验证边界、本地数据风险和漏洞私密报告路径。
+- **已完成（2026-08-08）**：修复 Windows 启动脚本；CI 增加 Windows；三语 README 与 AI 安装指南补齐
+  精确 Node 22、FFmpeg/ffprobe、better-sqlite3、PowerShell 路径、magnet 下载器和 HEVC 边界。Windows 空媒体
+  首次安装已验证依赖、后端健康接口和前端页面；待本批改动推送后，用全新目录复测公开仓库的单一 `npm start`，
+  再用自有 H.264 样片完成真实媒体播放闭环。
 - 为 README 提供无版权风险的截图或短演示；可用空媒体库或演示数据拍摄，不能纳入未授权动画片段、字幕或个人文件名。
 - 发布第一个带清晰版本号和变更说明的 GitHub Release；在此之前不要把仓库的预发布状态写成稳定版。
 - 评估将本地 SQLite 中的 API key 改放入操作系统凭证库；公开发布前需先明确其本地存储和备份风险。
-- 个人网站是独立的后续项目：先定义个人主页的信息架构、域名和托管方式，再将 Kotoba Anime 作为“项目”栏目中的单一入口。不要把播放器的本地媒体、下载或凭证能力部署到公共个人网站。
+- 个人网站是独立的后续项目：先定义个人主页的信息架构、域名和托管方式，再将 tanku Anime 作为“项目”栏目中的单一入口。不要把播放器的本地媒体、下载或凭证能力部署到公共个人网站。
 
 **推广原则（2026-08-06）**：优先积累可复用的公开资产（项目 README、开发日志、解决具体学习问题的短文章/演示）并让它们互相链接，再导向项目主页；不以抓取、搬运媒体或堆砌低价值 SEO 页面换取流量。该方向借鉴了对 `learn-py.org` 增长路径的公开调研：长期教程资产与 GitHub 入口比新域名冷启动更可持续。
 
 ## 7. 开发约定
 
 - **TDD**：纯逻辑（解析、状态机、文件挑选、路由）先写 vitest 测试；外部依赖（ffmpeg/jimaku/AI API）
-  全部依赖注入 fake。跑法：`npm test`（当前 server 113 + web 23，改完必须全绿）。
+  全部依赖注入 fake。跑法：`npm test`（当前 server 130 + web 32，改完必须全绿）。
 - **模块模式**：新功能 = `server/src/modules/<name>/routes.ts`（Fastify plugin，opts 传 db 和可注入依赖）
   + `index.ts` 注册 + `web/src/api.ts` 加方法。别在组件里直接 fetch。
 - **UI**：颜色只用 index.css `:root` 变量；日文 UI 文案；学习模式相关逻辑进 learningMode.ts reducer（保持可测）。

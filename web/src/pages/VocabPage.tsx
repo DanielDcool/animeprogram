@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import type { VocabItem } from '../types';
+import { playbackUrl } from '../player/playbackPosition';
 
 function fmtTime(sec: number | null): string {
   if (sec == null) return '';
@@ -36,23 +37,25 @@ export default function VocabPage() {
         {items.map((v) => (
           <li key={v.id}>
             <div className="vocab-main">
-              {v.kind === 'word' ? (
-                <>
-                  <b>{v.word}</b>
-                  {v.reading && v.reading !== v.word && <span className="reading">{v.reading}</span>}
-                  {v.gloss && <div className="vocab-gloss">{v.gloss}</div>}
-                  <div className="vocab-sentence">例: {v.sentence}</div>
-                </>
-              ) : (
-                <>
-                  <b>{v.sentence}</b>
-                  {v.translation && <div className="vocab-gloss">{v.translation}</div>}
-                </>
-              )}
+              <Link className="vocab-detail-link" to={`/vocab/${v.id}`}>
+                {v.kind === 'word' ? (
+                  <>
+                    <b>{v.word}</b>
+                    {v.reading && v.reading !== v.word && <span className="reading">{v.reading}</span>}
+                    {v.gloss && <div className="vocab-gloss">{v.gloss}</div>}
+                    <div className="vocab-sentence">例: {v.sentence}</div>
+                  </>
+                ) : (
+                  <>
+                    <b>{v.sentence}</b>
+                    {v.translation && <div className="vocab-gloss">{v.translation}</div>}
+                  </>
+                )}
+              </Link>
               <div className="vocab-src">
                 {v.series && (
                   v.mediaId != null
-                    ? <Link to={`/play/${v.mediaId}`}>{v.series}{v.episode != null && ` 第${v.episode}話`}</Link>
+                    ? <Link to={playbackUrl(v.mediaId, v.positionSec)}>{v.series}{v.episode != null && ` 第${v.episode}話`}</Link>
                     : <span>{v.series}{v.episode != null && ` 第${v.episode}話`}</span>
                 )}
                 {v.positionSec != null && <span> {fmtTime(v.positionSec)}</span>}

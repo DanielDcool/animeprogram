@@ -1,4 +1,4 @@
-# ことばアニメ / Kotoba Anime
+# tanku Anime
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
@@ -6,21 +6,24 @@
 
 > 中文：一个本地优先的日语动画学习播放器。先听、再暂停看当前句、分词查词和按需 AI 讲解，最后保存到生词本复习。
 
-Kotoba Anime is an early-stage, self-hosted web app. Your media files stay on your computer; the app does not host, proxy, or download video.
+tanku Anime is an early-stage, self-hosted web app. Your media files stay on your computer; the app does not host, proxy, or download video.
 
 ## What you can do
 
 - Discover the current and previous anime season, search titles, and open official streaming or information links.
 - Learn from local `.mp4` / `.mkv` files with Japanese `.srt` / `.ass` subtitles. MKV files are remuxed when needed for browser playback.
+- Keep larger libraries readable: media is grouped by its containing folder, and each folder can be collapsed independently.
 - Stay in listening mode by default: pause to reveal the current line, replay it, jump between lines, or open a transcript that follows playback.
 - Tokenize Japanese locally with Kuromoji and look up JMdict definitions.
 - Ask Anthropic, DeepSeek, OpenAI, or Google Gemini for a structured explanation only when you want one. Results are cached locally.
-- Save words and sentences, then export an Anki-compatible TSV file.
+- Save words and sentences, open a detail view with the saved meaning, any existing AI explanation cache, and a timestamped source link, then export an Anki-compatible TSV file.
 - Optionally connect to Jimaku for subtitle matching, and hand a magnet link to your own local downloader. No downloader RPC, video transfer, or remote media lifecycle is built into the app.
 
-## Quick start (macOS)
+## Quick start
 
-**Verified environment:** macOS, Node.js 22+, and FFmpeg. Linux may work but is not yet a supported release target.
+**Requirements:** Node.js 22.x and FFmpeg, with both `ffmpeg` and `ffprobe` available on `PATH`. The full app and real media workflow are manually verified on macOS. Windows is included in CI for dependency installation, tests, build, startup, SQLite initialization, directory watching, the web page, and the health endpoint; real Windows media playback still needs a physical-machine check.
+
+macOS:
 
 ```bash
 git clone https://github.com/DanielDcool/animeprogram.git
@@ -30,13 +33,35 @@ npm ci
 npm start
 ```
 
-Open [http://localhost:5173](http://localhost:5173). The application creates its local database automatically and watches `~/AnimeLibrary` by default.
+Windows PowerShell (after installing [Node.js 22](https://nodejs.org/en/download) and an FFmpeg Windows build linked from the [official FFmpeg download page](https://ffmpeg.org/download.html)):
 
-To use a different media or data location, set these before starting:
+```powershell
+node --version
+ffmpeg -version
+ffprobe -version
+git clone https://github.com/DanielDcool/animeprogram.git
+cd animeprogram
+npm ci
+npm start
+```
+
+`node --version` must report `v22.x`. Do not use a moving Node.js "LTS" package alias unless it still resolves to major version 22.
+
+Open [http://localhost:5173](http://localhost:5173). The application creates its local database automatically and watches the `AnimeLibrary` folder in your home directory by default. You can edit the full path in **Settings**; restart the application after saving it.
+
+`MEDIA_DIR` remains the highest-priority process override. To use a temporary media override or a different data location on macOS or Linux, set these before starting:
 
 ```bash
-export MEDIA_DIR="$HOME/Movies/KotobaAnime"
+export MEDIA_DIR="$HOME/Movies/TankuAnime"
 export DATA_DIR="$PWD/.local-data"
+npm start
+```
+
+On Windows PowerShell, use process-local environment variables:
+
+```powershell
+$env:MEDIA_DIR = "$HOME\Videos\TankuAnime"
+$env:DATA_DIR = "$PWD\.local-data"
 npm start
 ```
 
@@ -58,14 +83,16 @@ OpenAI requires an [OpenAI Platform API key](https://platform.openai.com/api-key
 
 ### Subtitles and local media
 
-Put your media and matching Japanese subtitles in `MEDIA_DIR` (default: `~/AnimeLibrary`). Examples:
+Put your media and matching Japanese subtitles in the media directory shown in **Settings** (default: the `AnimeLibrary` folder in your home directory). You may organize shows in subfolders; the library groups them by that relative folder. Examples:
 
 ```text
-~/AnimeLibrary/Show - 01.mkv
-~/AnimeLibrary/Show - 01.ja.srt
+AnimeLibrary/Show/Show - 01.mkv
+AnimeLibrary/Show/Show - 01.ja.srt
 ```
 
 External Japanese subtitles are preferred; otherwise the app attempts to extract an embedded Japanese subtitle track from MKV. Jimaku matching is optional and requires an API key you obtain from Jimaku.
+
+The magnet button is also optional. It requires a magnet-capable desktop downloader registered with the operating system. On Windows, install or reconfigure that downloader only with the user's confirmation, and point its save folder at the media directory shown in **Settings** if automatic library pickup is wanted. Prefer H.264 8-bit releases for the broadest browser compatibility; Windows HEVC support varies by OS, hardware, extensions, and browser, so tanku Anime conservatively marks H.265 as needing conversion there.
 
 ## Learning controls
 
@@ -85,6 +112,8 @@ On desktop, drag the divider between the player and analysis panel to resize it.
 
 The analysis panel keeps the selected line while you replay it, even when subtitles are hidden. It changes only after you pause on or select another line.
 
+Reopening a video resumes from its last saved viewing position. A source link from the vocabulary detail page takes priority once and opens directly at that saved sentence time.
+
 ## Development
 
 ```bash
@@ -96,12 +125,11 @@ The project uses a Fastify server in `server/` and a React/Vite client in `web/`
 
 ## Setting up with an AI coding agent
 
-Yes—an `AGENTS.md` file is becoming a useful, cross-tool convention for project-specific coding instructions. This repository has one at the root, plus a safe, command-by-command setup guide for an agent:
+Give an AI coding agent this one sentence:
 
-1. Ask the agent to read [AGENTS.md](AGENTS.md), this README, and [docs/AI-SETUP.md](docs/AI-SETUP.md).
-2. Then give it: “Set up Kotoba Anime locally. Do not expose API keys, modify my media files, or commit changes unless I ask.”
+> Install and start tanku Anime from https://github.com/DanielDcool/animeprogram on this computer.
 
-The guide is intentionally explicit about optional components, local data, verification, and actions that require confirmation.
+The agent is responsible for reading [AGENTS.md](AGENTS.md), this README, and [docs/AI-SETUP.md](docs/AI-SETUP.md). Those files define the safety boundaries, platform checks, optional components, and verification steps, so users do not need to repeat them. On Windows, the agent must verify Node.js 22, both FFmpeg executables, dependencies, tests, startup, the web page, and the health endpoint before saying the installation works.
 
 ## Contributing
 
@@ -110,15 +138,15 @@ Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_
 ## Media, privacy, and legal boundary
 
 - Bring only media and subtitles you are authorized to use.
-- Your media stays in `MEDIA_DIR`; the app does not upload it.
+- Your media stays in the configured local media directory; the app does not upload it.
 - The optional resource search only returns public metadata and a magnet handoff for your local downloader. It does not download, host, or proxy video.
 - API keys, viewing progress, vocabulary, mappings, and AI explanation cache are local application data. Back up or remove the SQLite data directory deliberately.
 - The server listens on `127.0.0.1` by default. Do not expose it to an untrusted network; API keys are currently stored in the local SQLite database in plaintext. See [SECURITY.md](SECURITY.md) for reporting and threat-model details.
 
 ## License
 
-Kotoba Anime is released under the [MIT License](LICENSE).
+tanku Anime is released under the [MIT License](LICENSE).
 
 ## Project status
 
-The project is public and has CI plus contribution and security policies. It is verified on macOS; Linux and Windows are not yet supported release targets. A copyright-safe screenshot or short demo is still needed before broader promotion. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the current roadmap.
+The project is public and has cross-platform CI plus contribution and security policies. macOS has full manual verification; Windows now has compatibility fixes and automated coverage, with physical-machine media playback still pending. A copyright-safe screenshot or short demo is also needed before broader promotion. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the current roadmap.

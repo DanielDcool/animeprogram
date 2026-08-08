@@ -1,6 +1,6 @@
-# Contributing to Kotoba Anime
+# Contributing to tanku Anime
 
-Thanks for considering a contribution. Kotoba Anime is a local-first Japanese learning player, so the best changes remove a real step of learning friction: finding a suitable show, understanding one missed line, or reviewing it later.
+Thanks for considering a contribution. tanku Anime is a local-first Japanese learning player, so the best changes remove a real step of learning friction: finding a suitable show, understanding one missed line, or reviewing it later.
 
 ## Before you start
 
@@ -16,7 +16,7 @@ npm test
 npm start
 ```
 
-Use Node.js 22+ and FFmpeg. See [docs/AI-SETUP.md](docs/AI-SETUP.md) for local-data and credential boundaries.
+Use Node.js 22.x and FFmpeg. See [docs/AI-SETUP.md](docs/AI-SETUP.md) for local-data and credential boundaries.
 
 ## Pull requests
 

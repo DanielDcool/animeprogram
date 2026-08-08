@@ -167,6 +167,7 @@ function resourceScore(a: ResourceResult, b: ResourceResult): number {
 export function parseNyaaRss(
   xml: string,
   options: ResourceSearchOptions = {},
+  platform: NodeJS.Platform = process.platform,
 ): ResourceResult[] {
   if (!/<rss\b/i.test(xml) || !/<channel\b/i.test(xml)) {
     throw new ResourceUpstreamError('Nyaa returned invalid RSS');
@@ -200,7 +201,9 @@ export function parseNyaaRss(
       releaseGroup: releaseGroup(title),
       resolution: resolution(title),
       codec: detectedCodec,
-      needsTranscode: detectedCodec === 'AV1' || (tenBit && detectedCodec !== 'H.265'),
+      needsTranscode: detectedCodec === 'AV1'
+        || (detectedCodec === 'H.265' && platform !== 'darwin')
+        || (tenBit && detectedCodec !== 'H.265'),
     });
   }
   const matching = options.season == null
@@ -212,6 +215,7 @@ export function parseNyaaRss(
 export function createNyaaResourceProvider(
   fetchImpl: ResourceFetch = fetch,
   now: () => number = Date.now,
+  platform: NodeJS.Platform = process.platform,
 ): ResourceProvider {
   const cache = new Map<string, { expiresAt: number; items: ResourceResult[] }>();
 
@@ -237,7 +241,7 @@ export function createNyaaResourceProvider(
     }
     if (!response.ok) throw new ResourceUpstreamError(`Nyaa returned ${response.status}`);
     try {
-      const items = parseNyaaRss(await response.text(), options);
+      const items = parseNyaaRss(await response.text(), options, platform);
       cache.set(key, { expiresAt: now() + CACHE_TTL_MS, items });
       return items;
     } catch (error) {

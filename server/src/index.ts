@@ -1,8 +1,8 @@
 import path from 'node:path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { config } from './config.js';
-import { createDb } from './db.js';
+import { config, resolveMediaDir } from './config.js';
+import { createDb, getSetting } from './db.js';
 import { mediaRoutes } from './modules/media/routes.js';
 import { subtitleRoutes } from './modules/subtitle/routes.js';
 import { analyzeRoutes } from './modules/analyze/routes.js';
@@ -28,26 +28,36 @@ export async function buildApp(opts: { enableMediaAutomation?: boolean } = {}) {
 
   const db = createDb(path.join(config.dataDir, 'library.db'));
   app.decorate('db', db);
+  const mediaDir = resolveMediaDir(
+    config.defaultMediaDir,
+    getSetting(db, 'media_dir'),
+    config.mediaDirOverride,
+  );
   const subtitleSync = opts.enableMediaAutomation
     ? createSubtitleSyncCoordinator({ db, log: app.log })
     : null;
   const mediaWatcher = subtitleSync
     ? createMediaDirectoryWatcher({
       db,
-      mediaDir: config.mediaDir,
+      mediaDir,
       onImported: (mediaIds) => subtitleSync.reconcile(mediaIds),
       log: app.log,
     })
     : null;
   await app.register(mediaRoutes, {
     db,
-    mediaDir: config.mediaDir,
+    mediaDir,
     onImported: subtitleSync ? (mediaIds) => subtitleSync.reconcile(mediaIds) : undefined,
   });
   await app.register(subtitleRoutes, { db });
   await app.register(analyzeRoutes, { db });
   await app.register(aiRoutes, { db });
-  await app.register(miscRoutes, { db });
+  await app.register(miscRoutes, {
+    db,
+    mediaDir,
+    defaultMediaDir: config.defaultMediaDir,
+    mediaDirOverridden: config.mediaDirOverride != null,
+  });
   await app.register(jimakuRoutes, { db });
   await app.register(vocabRoutes, { db });
   const catalog = createAniListCatalog();

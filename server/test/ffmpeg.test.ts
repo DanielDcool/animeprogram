@@ -18,8 +18,13 @@ describe('decidePlayability', () => {
   });
   it('10bit hevc can be remuxed for the verified local browser', () => {
     const probe = { streams: [{ index: 0, codec_type: 'video', codec_name: 'hevc', pix_fmt: 'yuv420p10le' }] };
-    expect(decidePlayability(probe as any, '.mkv')).toBe('remux');
-    expect(decidePlayability(probe as any, '.mp4')).toBe('direct');
+    expect(decidePlayability(probe as any, '.mkv', 'darwin')).toBe('remux');
+    expect(decidePlayability(probe as any, '.mp4', 'darwin')).toBe('direct');
+  });
+  it('does not promise hevc playback on Windows', () => {
+    const probe = { streams: [{ index: 0, codec_type: 'video', codec_name: 'hevc', pix_fmt: 'yuv420p10le' }] };
+    expect(decidePlayability(probe as any, '.mkv', 'win32')).toBe('transcode_needed');
+    expect(decidePlayability(probe as any, '.mp4', 'win32')).toBe('transcode_needed');
   });
   it('10bit h264 -> transcode_needed', () => {
     const probe = { streams: [{ index: 0, codec_type: 'video', codec_name: 'h264', pix_fmt: 'yuv420p10le' }] };

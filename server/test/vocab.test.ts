@@ -61,6 +61,50 @@ describe('GET /api/vocab', () => {
   });
 });
 
+describe('GET /api/vocab/:id', () => {
+  it('returns media context and the latest cached AI explanation for the sentence', async () => {
+    const app = makeApp();
+    await app.inject({ method: 'POST', url: '/api/vocab', payload: wordPayload });
+    const id = (await app.inject({ url: '/api/vocab' })).json()[0].id;
+    const explanation = {
+      translation: '吃完就回去吧',
+      structure: '条件表达',
+      expressions: [{ expression: '〜たら', meaning: '表示条件' }],
+      nuance: '轻松的提议',
+    };
+    db.prepare(`INSERT INTO explain_cache (sentence_hash, sentence_text, response_json) VALUES ('old','食べたら帰ろうか','{}')`).run();
+    db.prepare(`INSERT INTO explain_cache (sentence_hash, sentence_text, response_json) VALUES ('new','食べたら帰ろうか',?)`).run(JSON.stringify(explanation));
+
+    const res = await app.inject({ url: `/api/vocab/${id}` });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      id,
+      word: '食べる',
+      series: 'Frieren',
+      episode: 3,
+      mediaId: 1,
+      positionSec: 17.5,
+      aiExplanation: explanation,
+    });
+  });
+
+  it('returns null when the sentence has no cached AI explanation', async () => {
+    const app = makeApp();
+    await app.inject({ method: 'POST', url: '/api/vocab', payload: sentencePayload });
+    const id = (await app.inject({ url: '/api/vocab' })).json()[0].id;
+
+    const res = await app.inject({ url: `/api/vocab/${id}` });
+
+    expect(res.json().aiExplanation).toBeNull();
+  });
+
+  it('returns 404 for an unknown item', async () => {
+    const res = await makeApp().inject({ url: '/api/vocab/999' });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
 describe('DELETE /api/vocab/:id', () => {
   it('removes an item', async () => {
     const app = makeApp();

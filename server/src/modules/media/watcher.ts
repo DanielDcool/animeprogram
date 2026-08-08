@@ -139,7 +139,17 @@ export function createMediaDirectoryWatcher(opts: {
     if (stopped || directoryWatcher) return;
     fs.mkdirSync(mediaDir, { recursive: true });
     await reconcileNow();
-    directoryWatcher = watchFactory(mediaDir, scheduleReconcile);
+    const reportWatcherFailure = () => {
+      log?.error('media directory watcher failed; periodic reconciliation remains active');
+      directoryWatcher?.close();
+      directoryWatcher = null;
+    };
+    try {
+      directoryWatcher = watchFactory(mediaDir, scheduleReconcile);
+      directoryWatcher.on('error', reportWatcherFailure);
+    } catch {
+      reportWatcherFailure();
+    }
     interval = setInterval(() => { void reconcileNow(); }, pollIntervalMs);
   }
 

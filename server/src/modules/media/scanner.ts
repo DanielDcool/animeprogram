@@ -67,6 +67,7 @@ export async function scanFiles(
   mediaDir: string,
   filePaths: string[],
   ops: FfmpegOps = realOps,
+  platform: NodeJS.Platform = process.platform,
 ): Promise<ScanResult> {
   const importedIds: number[] = [];
   const failedFiles: string[] = [];
@@ -94,7 +95,7 @@ export async function scanFiles(
       continue;
     }
 
-    const playability = decidePlayability(probe, ext);
+    const playability = decidePlayability(probe, ext, platform);
     let playablePath: string | null = null;
     let status: string = playability === 'direct' ? 'direct' : playability;
 
@@ -147,6 +148,11 @@ export async function scanFiles(
   return { importedIds, failedFiles };
 }
 
-export async function scanLibrary(db: Db, mediaDir: string, ops: FfmpegOps = realOps): Promise<ScanResult> {
-  return scanFiles(db, mediaDir, listSourceVideos(mediaDir), ops);
+export async function scanLibrary(
+  db: Db,
+  mediaDir: string,
+  ops: FfmpegOps = realOps,
+  platform: NodeJS.Platform = process.platform,
+): Promise<ScanResult> {
+  return scanFiles(db, mediaDir, listSourceVideos(mediaDir), ops, platform);
 }

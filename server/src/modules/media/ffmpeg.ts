@@ -19,9 +19,14 @@ export type Playability = 'direct' | 'remux' | 'transcode_needed';
 const BROWSER_VIDEO = new Set(['h264', 'hevc', 'vp9', 'av1']);
 const TEXT_SUB = new Set(['ass', 'ssa', 'subrip', 'srt']);
 
-export function decidePlayability(probe: ProbeResult, ext: string): Playability {
+export function decidePlayability(
+  probe: ProbeResult,
+  ext: string,
+  platform: NodeJS.Platform = process.platform,
+): Playability {
   const v = probe.streams.find((s) => s.codec_type === 'video');
   if (!v || !BROWSER_VIDEO.has(v.codec_name)) return 'transcode_needed';
+  if (v.codec_name === 'hevc' && platform !== 'darwin') return 'transcode_needed';
   if (v.codec_name !== 'hevc' && v.pix_fmt && /10le|10be|12le/.test(v.pix_fmt)) {
     return 'transcode_needed';
   }
