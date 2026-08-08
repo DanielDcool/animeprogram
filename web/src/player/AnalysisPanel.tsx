@@ -17,30 +17,53 @@ export default function AnalysisPanel({ sentence, context, mediaId, positionSec,
   const [explainState, setExplainState] = useState<'idle' | 'loading' | 'error' | 'unconfigured'>('idle');
   const [savedWords, setSavedWords] = useState<Set<string>>(new Set());
   const [sentenceSaved, setSentenceSaved] = useState(false);
+  const [analyzeState, setAnalyzeState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [saveError, setSaveError] = useState('');
+
+  async function loadTokens(text: string) {
+    setAnalyzeState('loading');
+    try {
+      const result = await api.analyze(text);
+      setTokens(result.tokens);
+      setAnalyzeState('idle');
+    } catch {
+      setAnalyzeState('error');
+    }
+  }
 
   useEffect(() => {
     setTokens([]); setActive(null); setExplanation(null); setExplainState('idle');
-    setSavedWords(new Set()); setSentenceSaved(false);
+    setSavedWords(new Set()); setSentenceSaved(false); setSaveError(''); setAnalyzeState('idle');
     if (!sentence) return;
-    api.analyze(sentence).then((r) => setTokens(r.tokens)).catch(console.error);
+    void loadTokens(sentence);
   }, [sentence]);
 
   async function saveWord(t: Token) {
     if (!sentence) return;
-    await api.saveVocab({
-      kind: 'word', word: t.base, reading: t.reading, gloss: t.glosses[0]?.gloss,
-      sentence, mediaId, positionSec,
-    }).catch(console.error);
-    setSavedWords((s) => new Set(s).add(t.base));
+    setSaveError('');
+    try {
+      await api.saveVocab({
+        kind: 'word', word: t.base, reading: t.reading, gloss: t.glosses[0]?.gloss,
+        sentence, mediaId, positionSec,
+      });
+      setSavedWords((s) => new Set(s).add(t.base));
+    } catch {
+      setSaveError('単語を保存できませんでした。もう一度試してください。');
+    }
   }
 
   async function saveSentence() {
     if (!sentence) return;
-    await api.saveVocab({
-      kind: 'sentence', sentence, translation: explanation?.translation,
-      mediaId, positionSec,
-    }).catch(console.error);
-    setSentenceSaved(true);
+    setSaveError('');
+    try {
+      await api.saveVocab({
+        kind: 'sentence', sentence, translation: explanation?.translation,
+        mediaId, positionSec,
+      });
+      setSentenceSaved(true);
+    } catch {
+      setSaveError('文を保存できませんでした。もう一度試してください。');
+    }
   }
 
   useEffect(() => {
@@ -98,6 +121,13 @@ export default function AnalysisPanel({ sentence, context, mediaId, positionSec,
         )}
       </div>
 
+      {analyzeState === 'loading' && <p className="status-message" aria-live="polite">文を解析中…</p>}
+      {analyzeState === 'error' && (
+        <p className="status-message error" role="alert">
+          文を解析できませんでした。<button type="button" onClick={() => void loadTokens(sentence)}>再試行</button>
+        </p>
+      )}
+
       {activeToken && (
         <div className="gloss-box">
           <div className="head">
@@ -146,6 +176,7 @@ export default function AnalysisPanel({ sentence, context, mediaId, positionSec,
       <button className="fav-btn" disabled={sentenceSaved} onClick={saveSentence}>
         {sentenceSaved ? '★ 保存しました' : '☆ この文を保存'}
       </button>
+      {saveError && <p className="status-message error" role="alert">{saveError}</p>}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
-import { api } from '../api';
-import type { SubtitleData } from '../types';
+import { api, joinApiBase } from '../api';
+import type { MediaItem, SubtitleData } from '../types';
 import {
   initialState,
   reduce,
@@ -22,6 +22,7 @@ import {
   resizePlayerWidthByKey,
 } from '../player/playerLayout';
 import { linkedPlaybackPosition, playbackStartPosition } from '../player/playbackPosition';
+import { episodeNavigation } from '../player/episodeNavigation';
 
 const PLAYER_WIDTH_KEY = 'player-main-width';
 
@@ -46,6 +47,8 @@ export default function PlayerPage() {
   const [explainRequest, setExplainRequest] = useState({ id: 0, sentence: null as string | null });
   const [playerWidth, setPlayerWidth] = useState(() => normalizeStoredPlayerWidth(localStorage.getItem(PLAYER_WIDTH_KEY)));
   const [fullscreen, setFullscreen] = useState(false);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [episodeError, setEpisodeError] = useState(false);
 
   useEffect(() => {
     playerWidthRef.current = playerWidth;
@@ -58,8 +61,26 @@ export default function PlayerPage() {
   }, []);
 
   useEffect(() => {
-    api.subtitles(mediaId).then(setSubs).catch(() => setSubError(true));
+    let cancelled = false;
+    setSubs(null);
+    setSubError(false);
+    setLearn({ ...initialState });
+    setTime(0);
+    setSelectedAnalysisCueIdx(null);
+    setPanelMode('analysis');
+    setExplainRequest({ id: 0, sentence: null });
+    lastReplayAtRef.current = null;
+    api.subtitles(mediaId)
+      .then((result) => { if (!cancelled) setSubs(result); })
+      .catch(() => { if (!cancelled) setSubError(true); });
+    return () => { cancelled = true; };
   }, [mediaId]);
+
+  useEffect(() => {
+    api.listMedia()
+      .then((items) => { setMediaItems(items); setEpisodeError(false); })
+      .catch(() => setEpisodeError(true));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,6 +214,14 @@ export default function PlayerPage() {
   }, [saveVideoPosition]);
 
   const subtitleVisible = learn.alwaysOn || learn.revealed;
+  const episodes = useMemo(() => episodeNavigation(mediaItems, mediaId), [mediaItems, mediaId]);
+  const currentMedia = episodes.currentIndex >= 0 ? episodes.items[episodes.currentIndex] : null;
+  const multipleSeries = new Set(episodes.items.map((item) => item.series)).size > 1;
+
+  function episodeLabel(item: MediaItem) {
+    const episode = item.episode == null ? '' : `第${item.episode}話`;
+    return multipleSeries ? `${item.series}${episode && ` · ${episode}`}` : episode || item.series;
+  }
 
   function toggleAlwaysOn() {
     lastReplayAtRef.current = null;
@@ -247,7 +276,7 @@ export default function PlayerPage() {
           </button>
           <video
             ref={videoRef}
-            src={`/api/media/${mediaId}/stream`}
+            src={joinApiBase(`/api/media/${mediaId}/stream`)}
             controls
             controlsList="nofullscreen"
             autoPlay
@@ -271,19 +300,51 @@ export default function PlayerPage() {
           />
           <SubtitleOverlay text={cue?.text ?? null} visible={subtitleVisible} />
         </div>
-        <div className="hotkeys">
-          <button type="button" className="key-chip" onClick={togglePause}><b>Space</b>暂停+显示字幕</button>
-          <button type="button" className="key-chip" onClick={replayCue}><b>A</b>回到本句重听</button>
-          <button type="button" className="key-chip" onClick={() => jumpCue(-1)}><b>←</b>上一句</button>
-          <button type="button" className="key-chip" onClick={() => jumpCue(1)}><b>→</b>下一句</button>
-          <button type="button" className="key-chip" onClick={requestExplanation}><b>D</b>AI 深度讲解</button>
-          <button type="button" className="key-chip" onClick={toggleAlwaysOn}><b>S</b>字幕常显 {learn.alwaysOn ? <span className="on">ON</span> : 'OFF'}</button>
-          <button type="button" className="key-chip" onClick={toggleTranscript}><b>T</b>字幕一覧</button>
-          <button type="button" className="key-chip" onClick={() => adjustOffset(-100)}><b>[</b>偏移 −100ms</button>
-          <button type="button" className="key-chip" onClick={() => adjustOffset(+100)}><b>]</b>偏移 +100ms</button>
-          <span className="key-chip">偏移 {subs ? `${subs.offsetMs}ms` : '—'}</span>
-          <Link to="/library">← ライブラリ</Link>
+        <div className="player-controls">
+          <div className="hotkeys primary-controls">
+            <button type="button" className="key-chip" onClick={togglePause}><b>Space</b>一時停止・字幕表示</button>
+            <button type="button" className="key-chip" onClick={replayCue}><b>A</b>この文を聞き直す</button>
+            <button type="button" className="key-chip" onClick={() => jumpCue(-1)}><b>←</b>前の文</button>
+            <button type="button" className="key-chip" onClick={() => jumpCue(1)}><b>→</b>次の文</button>
+          </div>
+          <div className="hotkeys secondary-controls">
+            <button type="button" className="key-chip" onClick={requestExplanation}><b>D</b>AI 解説</button>
+            <button type="button" className="key-chip" onClick={toggleAlwaysOn}><b>S</b>字幕常時表示 {learn.alwaysOn ? <span className="on">ON</span> : 'OFF'}</button>
+            <button type="button" className="key-chip" onClick={toggleTranscript}><b>T</b>字幕一覧</button>
+            <Link to="/library">← ライブラリ</Link>
+          </div>
         </div>
+        {episodeError && <p className="status-message error" role="alert">同じフォルダの動画を読み込めませんでした。</p>}
+        {!episodeError && currentMedia && (
+          <section className="episode-navigation" aria-label="エピソード選択">
+            <header>
+              <div>
+                <strong>{currentMedia.folder}</strong>
+                <span>{episodes.currentIndex + 1} / {episodes.items.length}</span>
+              </div>
+              <nav aria-label="前後のエピソード">
+                {episodes.previous
+                  ? <Link to={`/play/${episodes.previous.id}`}>← 前の話</Link>
+                  : <span aria-disabled="true">← 前の話</span>}
+                {episodes.next
+                  ? <Link to={`/play/${episodes.next.id}`}>次の話 →</Link>
+                  : <span aria-disabled="true">次の話 →</span>}
+              </nav>
+            </header>
+            <div className="episode-list">
+              {episodes.items.map((item) => (
+                <Link
+                  key={item.id}
+                  to={`/play/${item.id}`}
+                  className={item.id === mediaId ? 'current' : undefined}
+                  aria-current={item.id === mediaId ? 'page' : undefined}
+                >
+                  {episodeLabel(item)}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
         {subError && <p className="warn">この動画に字幕がありません。学習モードは使えません。</p>}
       </div>
       <div

@@ -47,7 +47,7 @@ describe('exportVocabToAnki', () => {
       return 1 as any;
     };
 
-    const result = await exportVocabToAnki(rows, invoke);
+    const result = await exportVocabToAnki(rows, invoke, 'https://anime.example/app/');
 
     expect(result).toEqual({ deck: ANKI_DECK_NAME, added: 1, skipped: 1, total: 2 });
     expect(calls.map((call) => call.action)).toEqual([
@@ -71,7 +71,7 @@ describe('exportVocabToAnki', () => {
     expect(candidates[0].fields.Back).toContain('たべる');
     expect(candidates[0].fields.Back).toContain('食べたら帰ろうか');
     expect(candidates[0].fields.Back).toContain('Frieren 第3話');
-    expect(candidates[0].fields.Back).toContain('http://localhost:5173/player/1?t=17.5');
+    expect(candidates[0].fields.Back).toContain('https://anime.example/app/play/1?t=17.5');
     expect(candidates[1].fields.Front).toBe('&lt;b&gt;危ない&lt;/b&gt;');
     expect(calls[4].params.notes).toEqual([candidates[0]]);
   });

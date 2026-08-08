@@ -34,6 +34,19 @@ a:hover { text-decoration: underline; }
   margin: 10px 0 14px; padding: 10px 12px; border: 1px solid var(--border);
   border-radius: 8px; background: var(--surface); color: var(--warm); font-size: 13px;
 }
+.status-message {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 12px 0; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--surface); color: var(--text-muted); font-size: 13px;
+}
+.status-message.error { border-color: #714b55; background: #281c22; color: #f3b3c8; }
+.status-message.success { border-color: #455536; background: #1c271d; color: var(--lime); }
+.status-message button { flex-shrink: 0; padding: 4px 10px; font-size: 12px; }
+.library-onboarding { margin-top: 18px; padding: 22px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+.library-onboarding h2 { margin: 0 0 12px; font-size: 18px; }
+.library-onboarding ol { margin: 0 0 14px; padding-left: 22px; color: var(--text-muted); line-height: 1.8; }
+.library-onboarding p { color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+kbd { padding: 1px 5px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-2); color: var(--text); font-family: inherit; }
 .library-groups { display: grid; gap: 18px; margin-top: 18px; }
 .library-group { overflow: hidden; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
 .library-group h2 { margin: 0; }
@@ -70,6 +83,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 input { background: #222228; color: var(--text); border: 1px solid var(--border-strong); border-radius: 6px; padding: 7px 10px; font-size: 14px; }
 input:focus { outline: none; border-color: var(--accent); }
 .settings-section { margin: 20px 0; }
+.settings-intro { color: var(--text-muted); font-size: 14px; line-height: 1.7; }
 .settings-section h2 { margin: 0 0 14px; font-size: 16px; }
 .settings-path { display: block; width: 100%; margin-top: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .settings-help { margin: 7px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
@@ -83,7 +97,7 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .player-main {
   flex: 0 1 var(--player-main-width, 62%); min-width: 360px;
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
 }
 .video-wrap { position: relative; background: #0c0c0e; border-radius: 10px; overflow: hidden; }
 .video-wrap video { width: 100%; max-height: 72vh; display: block; }
@@ -120,6 +134,9 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 
 .hotkeys { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+.player-controls { display: grid; gap: 7px; }
+.primary-controls .key-chip { color: var(--text); }
+.secondary-controls { padding-top: 7px; border-top: 1px solid var(--border); }
 .hotkeys .key-chip {
   background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
   padding: 5px 10px; font-size: 12px; color: var(--text-muted); white-space: nowrap;
@@ -130,6 +147,17 @@ input:focus { outline: none; border-color: var(--accent); }
 .hotkeys .key-chip .on { color: var(--warm); }
 .hotkeys a { margin-left: auto; font-size: 13px; }
 .warn { color: #f082aa; font-size: 14px; }
+.episode-navigation { padding: 11px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+.episode-navigation header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.episode-navigation header > div { min-width: 0; }
+.episode-navigation strong { display: block; overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.episode-navigation header span { color: var(--text-muted); font-size: 11px; }
+.episode-navigation nav { display: flex; gap: 12px; flex-shrink: 0; font-size: 12px; }
+.episode-navigation nav span[aria-disabled="true"] { color: #60636a; }
+.episode-list { display: flex; gap: 6px; margin-top: 9px; padding-bottom: 2px; overflow-x: auto; }
+.episode-list a { flex: 0 0 auto; min-width: 66px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 12px; text-align: center; }
+.episode-list a:hover { border-color: var(--accent); color: var(--text); text-decoration: none; }
+.episode-list a.current { border-color: var(--lime); background: #253023; color: var(--lime); }
 
 .player-resizer {
   position: relative; flex: 0 0 12px; cursor: col-resize; touch-action: none; outline: none;

@@ -6,6 +6,7 @@ import VocabPage from './pages/VocabPage';
 import VocabDetailPage from './pages/VocabDetailPage';
 import DiscoverPage from './pages/DiscoverPage';
 import AnimeDetailPage from './pages/AnimeDetailPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/vocab" element={<VocabPage />} />
         <Route path="/vocab/:id" element={<VocabDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>
   );

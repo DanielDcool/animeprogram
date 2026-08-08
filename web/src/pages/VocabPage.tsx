@@ -11,16 +11,57 @@ function fmtTime(sec: number | null): string {
 
 export default function VocabPage() {
   const [items, setItems] = useState<VocabItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [undoItem, setUndoItem] = useState<VocabItem | null>(null);
   const [exporting, setExporting] = useState(false);
   const [ankiMessage, setAnkiMessage] = useState('');
   const [ankiError, setAnkiError] = useState('');
 
-  const refresh = () => api.listVocab().then(setItems).catch(console.error);
-  useEffect(() => { refresh(); }, []);
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      setItems(await api.listVocab());
+      setLoadError('');
+    } catch {
+      setLoadError('単語帳を読み込めませんでした。');
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { void refresh(); }, []);
 
-  async function remove(id: number) {
-    await api.deleteVocab(id);
-    await refresh();
+  async function remove(item: VocabItem) {
+    setActionError('');
+    try {
+      await api.deleteVocab(item.id);
+      setItems((current) => current.filter((candidate) => candidate.id !== item.id));
+      setUndoItem(item);
+    } catch {
+      setActionError('削除できませんでした。もう一度試してください。');
+    }
+  }
+
+  async function undoRemove() {
+    if (!undoItem) return;
+    setActionError('');
+    try {
+      await api.saveVocab({
+        kind: undoItem.kind,
+        word: undoItem.word ?? undefined,
+        reading: undoItem.reading ?? undefined,
+        gloss: undoItem.gloss ?? undefined,
+        sentence: undoItem.sentence,
+        translation: undoItem.translation ?? undefined,
+        mediaId: undoItem.mediaId ?? undefined,
+        positionSec: undoItem.positionSec ?? undefined,
+      });
+      setUndoItem(null);
+      await refresh();
+    } catch {
+      setActionError('削除を元に戻せませんでした。もう一度試してください。');
+    }
   }
 
   async function exportToAnki() {
@@ -51,7 +92,21 @@ export default function VocabPage() {
       </header>
       {ankiMessage && <p className="anki-export-status">{ankiMessage}</p>}
       {ankiError && <p className="anki-export-error">{ankiError}</p>}
-      {items.length === 0 && (
+      {loading && <p className="status-message" aria-live="polite">単語帳を読み込み中…</p>}
+      {loadError && (
+        <div className="status-message error" role="alert">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => void refresh()}>再試行</button>
+        </div>
+      )}
+      {actionError && <p className="status-message error" role="alert">{actionError}</p>}
+      {undoItem && (
+        <div className="status-message success" role="status">
+          <span>1件削除しました。</span>
+          <button type="button" onClick={() => void undoRemove()}>元に戻す</button>
+        </div>
+      )}
+      {!loading && !loadError && items.length === 0 && (
         <p className="panel-idle">
           まだ何も保存されていません。再生ページで一時停止 → 単語の「☆ 保存」または「☆ この文を保存」から追加できます。
         </p>
@@ -84,7 +139,7 @@ export default function VocabPage() {
                 {v.positionSec != null && <span> {fmtTime(v.positionSec)}</span>}
               </div>
             </div>
-            <button className="del-btn" onClick={() => remove(v.id)} title="削除">✕</button>
+            <button className="del-btn" onClick={() => void remove(v)} title="削除" aria-label={`${v.word ?? v.sentence}を削除`}>✕</button>
           </li>
         ))}
       </ul>

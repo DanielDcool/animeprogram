@@ -13,6 +13,7 @@ tanku Anime is an early-stage, self-hosted web app. Your media files stay on you
 - Discover the current and previous anime season, search titles, and open official streaming or information links.
 - Learn from local `.mp4` / `.mkv` files with Japanese `.srt` / `.ass` subtitles. MKV files are remuxed when needed for browser playback.
 - Keep larger libraries readable: media is grouped by its containing folder, and each folder can be collapsed independently.
+- Switch episodes from the player: it lists playable videos in the same folder with previous, next, and direct episode links.
 - Stay in listening mode by default: pause to reveal the current line, replay it, jump between lines, or open a transcript that follows playback.
 - Tokenize Japanese locally with Kuromoji and look up JMdict definitions.
 - Ask Anthropic, DeepSeek, OpenAI, or Google Gemini for a structured explanation only when you want one. Results are cached locally.
@@ -49,6 +50,8 @@ npm start
 
 Open [http://localhost:5173](http://localhost:5173). The application creates its local database automatically and watches the `AnimeLibrary` folder in your home directory by default. You can edit the full path in **Settings**; restart the application after saving it.
 
+When the library is empty, the page walks through choosing a media folder, adding the first video, and optionally adding subtitles. Local playback needs no API key; AI explanations and Jimaku can be configured later.
+
 `MEDIA_DIR` remains the highest-priority process override. To use a temporary media override or a different data location on macOS or Linux, set these before starting:
 
 ```bash
@@ -80,6 +83,8 @@ npm run import-jmdict -w server
 Install [AnkiConnect](https://git.sr.ht/~foosoft/anki-connect) in Anki with add-on code `2055492159`, restart Anki, and keep it running. On the vocabulary page, click **Anki に一括追加**. tanku Anime creates a `tanku Anime` deck and note type, sends only new cards, and includes the saved context and timestamped local playback link on the back.
 
 The integration talks only to AnkiConnect on `127.0.0.1:8765`; it never edits Anki's collection database directly. If Anki or AnkiConnect is unavailable, the vocabulary stays unchanged and the page shows the required setup.
+
+New cards use `APP_BASE_URL` (default: `http://localhost:5173`) for playback links. Existing cards that are skipped by duplicate detection are not rewritten automatically.
 
 ### AI explanations
 
@@ -114,7 +119,7 @@ The on-screen control chips are clickable as well as keyboard shortcuts.
 | `T` | Toggle analysis and transcript; the transcript opens at the current line |
 | `[` / `]` | Adjust subtitle timing by −/+100 ms |
 
-On desktop, drag the divider between the player and analysis panel to resize it. Use the in-app full-screen button so subtitles remain visible in full screen.
+Only the common learning controls stay visible on screen; `[` / `]` remain advanced keyboard-only controls. On desktop, drag the divider between the player and analysis panel to resize it. Use the in-app full-screen button so subtitles remain visible in full screen.
 
 The analysis panel keeps the selected line while you replay it, even when subtitles are hidden. It changes only after you pause on or select another line.
 
@@ -128,6 +133,10 @@ npm run build -w web
 ```
 
 The project uses a Fastify server in `server/` and a React/Vite client in `web/`. All browser requests go through `web/src/api.ts`; learning-mode state is kept in `web/src/player/learningMode.ts`.
+
+### Advanced: hosting the web client on a server
+
+Prefer serving the web client and API from one origin, with a reverse proxy forwarding `/api` to Fastify while Fastify remains bound to loopback. Same-origin requests need no extra CORS access. If the client and API must use different origins, build the client with `VITE_API_BASE_URL` pointing to the API, set `CORS_ORIGINS` to a comma-separated exact allowlist, and set `APP_BASE_URL` for correct Anki playback links. These settings do not add authentication, HTTPS, or per-user data isolation; do not expose the API publicly until those controls exist.
 
 ## Setting up with an AI coding agent
 

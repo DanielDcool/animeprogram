@@ -20,7 +20,11 @@ interface SavePayload {
   positionSec?: number;
 }
 
-export async function vocabRoutes(app: FastifyInstance, opts: { db: Db; ankiInvoke?: AnkiInvoke }) {
+export async function vocabRoutes(app: FastifyInstance, opts: {
+  db: Db;
+  ankiInvoke?: AnkiInvoke;
+  appBaseUrl?: string;
+}) {
   const { db } = opts;
   const ankiInvoke = opts.ankiInvoke ?? createAnkiInvoke();
 
@@ -85,7 +89,7 @@ export async function vocabRoutes(app: FastifyInstance, opts: { db: Db; ankiInvo
       ORDER BY v.id
     `).all() as VocabExportRow[];
     try {
-      return await exportVocabToAnki(rows, ankiInvoke);
+      return await exportVocabToAnki(rows, ankiInvoke, opts.appBaseUrl);
     } catch (error) {
       if (error instanceof AnkiConnectUnavailableError) {
         return reply.code(503).send({

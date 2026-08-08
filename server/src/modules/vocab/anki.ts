@@ -84,15 +84,16 @@ function escapeHtml(value: string): string {
     .replace(/\r?\n/g, '<br>');
 }
 
-function sourceHtml(row: VocabExportRow): string | null {
+function sourceHtml(row: VocabExportRow, appBaseUrl: string): string | null {
   if (!row.series) return null;
   const label = `${row.series}${row.episode == null ? '' : ` 第${row.episode}話`}`;
   if (row.mediaId == null || row.positionSec == null) return escapeHtml(label);
-  const url = `http://localhost:5173/player/${row.mediaId}?t=${row.positionSec}`;
+  const baseUrl = appBaseUrl.endsWith('/') ? appBaseUrl : `${appBaseUrl}/`;
+  const url = new URL(`play/${row.mediaId}?t=${row.positionSec}`, baseUrl).toString();
   return `<a href="${url}">${escapeHtml(label)}</a>`;
 }
 
-function buildNote(row: VocabExportRow): AnkiNote {
+function buildNote(row: VocabExportRow, appBaseUrl: string): AnkiNote {
   const key = createHash('sha256')
     .update([row.kind, row.word ?? '', row.sentence].join('\0'))
     .digest('hex');
@@ -102,7 +103,7 @@ function buildNote(row: VocabExportRow): AnkiNote {
     : [row.translation])
     .filter((part): part is string => Boolean(part))
     .map(escapeHtml);
-  const source = sourceHtml(row);
+  const source = sourceHtml(row, appBaseUrl);
   if (source) backParts.push(`出典: ${source}`);
 
   return {
@@ -129,6 +130,7 @@ function buildNote(row: VocabExportRow): AnkiNote {
 export async function exportVocabToAnki(
   rows: VocabExportRow[],
   invoke: AnkiInvoke,
+  appBaseUrl = 'http://localhost:5173',
 ): Promise<{ deck: string; added: number; skipped: number; total: number }> {
   if (rows.length === 0) return { deck: ANKI_DECK_NAME, added: 0, skipped: 0, total: 0 };
 
@@ -148,7 +150,7 @@ export async function exportVocabToAnki(
     });
   }
 
-  const notes = rows.map(buildNote);
+  const notes = rows.map((row) => buildNote(row, appBaseUrl));
   const canAdd = await invoke<boolean[]>('canAddNotes', { notes });
   const newNotes = notes.filter((_note, index) => canAdd[index]);
   const addedIds = newNotes.length > 0

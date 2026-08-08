@@ -21,9 +21,19 @@ declare module 'fastify' {
   interface FastifyInstance { db: import('./db.js').Db }
 }
 
-export async function buildApp(opts: { enableMediaAutomation?: boolean } = {}) {
+export async function buildApp(opts: {
+  enableMediaAutomation?: boolean;
+  allowedOrigins?: string[];
+  appBaseUrl?: string;
+} = {}) {
   const app = Fastify({ logger: true });
-  await app.register(cors, { origin: true });
+  const allowedOrigins = opts.allowedOrigins ?? config.corsOrigins;
+  await app.register(cors, {
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    origin(origin, callback) {
+      callback(null, !origin || allowedOrigins.includes(origin));
+    },
+  });
   app.get('/api/health', async () => ({ ok: true }));
 
   const db = createDb(path.join(config.dataDir, 'library.db'));
@@ -59,7 +69,7 @@ export async function buildApp(opts: { enableMediaAutomation?: boolean } = {}) {
     mediaDirOverridden: config.mediaDirOverride != null,
   });
   await app.register(jimakuRoutes, { db });
-  await app.register(vocabRoutes, { db });
+  await app.register(vocabRoutes, { db, appBaseUrl: opts.appBaseUrl ?? config.appBaseUrl });
   const catalog = createAniListCatalog();
   await app.register(catalogRoutes, { client: catalog });
   await app.register(resourceRoutes, { catalog, resources: createNyaaResourceProvider() });

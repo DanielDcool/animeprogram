@@ -70,6 +70,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | H.265/HEVC Main 10 只在已验证的 macOS 浏览器路径 remux；Windows/Linux 保守标记「要トランスコード」，H.264 10-bit 等不兼容源同样不放行 | media/ffmpeg.ts decidePlayability |
 | 学习模式：默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显；[ ] 偏移±100ms；右侧解析独立保持已选句，重听时不消失；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
 | 桌面播放器布局：视频/解析面板之间可拖动调宽并记住宽度；自定义全屏会将视频、状态和字幕层一起全屏 | PlayerPage + playerLayout.ts |
+| 播放器同目录选集：列出当前物理目录中的可播放视频，提供上一话、下一话与直接选集；切集时重置字幕、学习句和讲解状态 | PlayerPage + episodeNavigation.ts |
 | 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，打开即定位当前句，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
 | AI 深度讲解：D 键，设置页可选 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini；统一输出{翻译/语法结构/表现/语气}，只给原句中出现的日语汉字标读音，解释新增术语不标；按格式版本/服务/模型/句子缓存 | ai/explain.ts |
@@ -80,6 +81,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | 作品详情：简介/评分/制作公司、AniList HTTPS 官方播放与官网链接、本地媒体库入口 | AnimeDetailPage |
 | 本机下载交接：按季度过滤错季结果，整季/可直接播放/1080p/可信/多字幕智能排序，再用合法 magnet 交给本机下载器 | resource/* + ResourceResults |
 | 本地媒体自动衔接：设置页可保存媒体目录，监听稳定文件后自动扫描；媒体库按相对目录分组且每组可独立折叠；已有 Jimaku 映射自动取字幕，无映射/失败时非打断提示 | misc/routes.ts + media/watcher.ts + jimaku/sync.ts + LibraryPage |
+| 开源首用与故障反馈：空媒体库三步引导；设置页区分必需媒体与可选扩展；媒体库/设置/单词本/解析有统一加载、错误、重试，单词删除支持一次撤销；未知路由显示 404 | LibraryPage + SettingsPage + VocabPage + AnalysisPanel + NotFoundPage |
 
 **已验证基线（截至 2026-08-08）**：
 
@@ -113,7 +115,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   可播放 MP4。Jimaku 按前半 1426、后半 3547、特典 3546 分段取得 24 份日语 SRT，每集解析
   228–462 句。第 1/12/23 集真实播放页均为 1920×1080、`readyState=4`、无媒体错误；点字幕句可跳转、
   暂停、显示并分词。
-- 自动测试基线为 server 135 个、web 32 个；server/web TypeScript noEmit 与 web production build 通过。
+- 自动测试基线为 server 136 个、web 36 个；server/web TypeScript noEmit 与 web production build 通过。
   后续以实际 `npm test` 输出为准，不要只依赖这个数字。
 - 2026-08-01：播放器实际验证 DeepSeek `deepseek-v4-flash` 能生成四段式日语解说；同一字幕中的
   `こもる` 词典释义因异体字导致的重复已按释义去重，界面只显示一次。
@@ -155,6 +157,11 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 - 2026-08-08：生词可进入详情页查看保存释义、来源句和已有 AI 缓存；来源链接携带句子时间。播放器重新进入时
   读取 SQLite 观看进度，时间链接只在首次进入时覆盖进度；暂停和离页会补存当前位置。视频获得焦点时 Space
   由视频元素单独拦截并阻止冒泡，修复原生控制与全局快捷键各执行一次造成的“暂停后立即继续”。
+- 2026-08-08：播放器把常用与次要控制分层，字幕偏移保留为 `[` / `]` 键盘专用；同目录 24 集真实浏览器验证
+  可横向选集，上一/下一话切换后 URL、视频源、当前集计数同步更新。空数据库实例验证首用三步引导和设置页
+  “本地播放不需要 API key”说明；未知路由显示带返回入口的 404。加载、失败、重试与单词删除撤销采用统一反馈。
+- 2026-08-08：CORS 从反射任意 Origin 改为本地 Web 来源的精确 allowlist，可用 `CORS_ORIGINS` 扩展；Anki
+  播放回链修正为真实 `/play/:id`，并可由 `APP_BASE_URL` 覆盖。生产及开发依赖审计均为 0 个漏洞。
 
 ## 4. 关键决策记录（为什么这么做）
 
@@ -174,6 +181,10 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 - **AnkiConnect 一键推送，不直改 Anki 数据库**：真实使用已确认手动 TSV 导入摩擦过大。固定创建
   `tanku Anime` 牌组和同名专用卡片类型，以内容哈希作为隐藏首字段去重；同词不同例句可以共存，重复点击只跳过
   已有卡片。Anki/插件不可用时只返回提示，不影响本地生词；插件安装与真实牌组写入必须由用户明确确认。
+- **远程 Web 优先同源反代，不把 CORS 当认证**：默认只允许本机 Web 开发来源。需要把 Web 放到服务器时，
+  推荐同一域名用 `/api` 反代到仍只监听 loopback 的 Fastify；前后端不同源才用 `VITE_API_BASE_URL` 指定 API，
+  并显式配置 `CORS_ORIGINS`。
+  `APP_BASE_URL` 只负责生成 Anki 回链。这些配置不会补上认证、HTTPS 或多用户隔离，公开 API 仍不受支持。
 - **jimaku 半自动**：番名模糊匹配不可靠，首次人工选一次 + jimaku_mapping 记住，之后全自动。
 - **季番目录走服务端 AniList 适配层**：浏览器不直连 GraphQL；服务端统一非成人过滤、字段清理、
   HTTPS 资源筛选、错误映射和 10 分钟缓存。每页最多 20 条，不批量镜像 AniList 数据。
@@ -258,7 +269,7 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 - 生词本内复习（简单间隔重复）；AnkiConnect 自动推送和真实 Anki 联调已完成
 - 多字幕轨支持（一个视频多个 subtitle_file，切换）；字幕样式设置（字号等）
 - 转码兜底：ffmpeg 后台把 H.264 10-bit 等未验证源转为浏览器兼容 H.264
-- 播放页「继续/从头」选择；剧集自动连播
+- 播放页「继续/从头」选择；选集已完成，播完自动进入下一集尚未做
 
 ### 6.4 开源发布与推广准备
 
@@ -279,7 +290,7 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 ## 7. 开发约定
 
 - **TDD**：纯逻辑（解析、状态机、文件挑选、路由）先写 vitest 测试；外部依赖（ffmpeg/jimaku/AI API）
-  全部依赖注入 fake。跑法：`npm test`（当前 server 135 + web 32，改完必须全绿）。
+  全部依赖注入 fake。跑法：`npm test`（当前 server 136 + web 36，改完必须全绿）。
 - **模块模式**：新功能 = `server/src/modules/<name>/routes.ts`（Fastify plugin，opts 传 db 和可注入依赖）
   + `index.ts` 注册 + `web/src/api.ts` 加方法。别在组件里直接 fetch。
 - **UI**：颜色只用 index.css `:root` 变量；日文 UI 文案；学习模式相关逻辑进 learningMode.ts reducer（保持可测）。

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import type { MediaItem } from '../types';
@@ -9,6 +9,9 @@ interface Candidate { id: number; name: string; englishName: string | null; japa
 
 export default function LibraryPage() {
   const [items, setItems] = useState<MediaItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [scanning, setScanning] = useState(false);
   // 字幕検索の進行状態（1 件ずつ）
   const [subSearch, setSubSearch] = useState<{ mediaId: number; candidates: Candidate[] } | null>(null);
@@ -16,16 +19,32 @@ export default function LibraryPage() {
   const [busy, setBusy] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set());
 
-  const refresh = () => api.listMedia().then(setItems).catch(console.error);
+  const refresh = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      setItems(await api.listMedia());
+      setLoadError('');
+    } catch {
+      setLoadError('ライブラリを読み込めませんでした。サーバーが起動しているか確認してください。');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 5_000);
+    const timer = window.setInterval(() => { void refresh(true); }, 5_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [refresh]);
 
   const scan = async () => {
     setScanning(true);
-    try { await api.scan(); await refresh(); } finally { setScanning(false); }
+    setActionError('');
+    try {
+      await api.scan();
+      await refresh(true);
+    } catch {
+      setActionError('フォルダをスキャンできませんでした。設定したフォルダとサーバーを確認してください。');
+    } finally { setScanning(false); }
   };
 
   async function findSubtitle(mediaId: number) {
@@ -118,8 +137,25 @@ export default function LibraryPage() {
       {needsMapping > 0 && (
         <p className="library-notice">字幕作品の選択が必要です（{needsMapping}件）</p>
       )}
-      {items.length === 0 && (
-        <p>動画がありません。設定したメディアフォルダに mkv/mp4 を置くと自動で追加されます。反映されない場合は手動スキャンを試してください。</p>
+      {loading && <p className="status-message" aria-live="polite">ライブラリを読み込み中…</p>}
+      {loadError && (
+        <div className="status-message error" role="alert">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => void refresh()}>再試行</button>
+        </div>
+      )}
+      {actionError && <p className="status-message error" role="alert">{actionError}</p>}
+      {!loading && !loadError && items.length === 0 && (
+        <section className="library-onboarding">
+          <h2>最初の1本を再生するまで</h2>
+          <ol>
+            <li><Link to="/settings">設定</Link>で、アニメ専用のメディアフォルダを指定します。</li>
+            <li>そのフォルダに <code>.mp4</code> または <code>.mkv</code> を置きます。同名の日本語 <code>.srt</code> / <code>.ass</code> があれば一緒に置けます。</li>
+            <li>ここに戻ってスキャンし、動画を開きます。再生中に <kbd>Space</kbd> を押すと字幕を確認できます。</li>
+          </ol>
+          <p>動画再生だけなら API キーは不要です。AI 解説と Jimaku は必要になってから設定できます。</p>
+          <Link className="primary-link" to="/settings">メディアフォルダを設定</Link>
+        </section>
       )}
       <div className="library-groups">
         {groups.map((group) => {

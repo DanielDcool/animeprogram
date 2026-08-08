@@ -27,9 +27,13 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [restartRequired, setRestartRequired] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
-    api.getSettings().then((s) => {
+  async function load() {
+    setLoading(true);
+    try {
+      const s = await api.getSettings();
       setProvider(s.ai_provider);
       setAnthropicKeySet(s.anthropic_api_key_set);
       setDeepseekKeySet(s.deepseek_api_key_set);
@@ -41,8 +45,15 @@ export default function SettingsPage() {
       setActiveMediaDir(s.media_dir);
       setDefaultMediaDir(s.default_media_dir);
       setMediaDirOverridden(s.media_dir_overridden);
-    });
-  }, []);
+      setLoadError('');
+    } catch {
+      setLoadError('設定を読み込めませんでした。サーバーが起動しているか確認してください。');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
 
   async function save() {
     const payload: Record<string, string> = { ai_provider: provider, ai_model: model };
@@ -72,6 +83,16 @@ export default function SettingsPage() {
   return (
     <main className="library settings-page">
       <h1>設定</h1>
+      <p className="settings-intro">ローカル動画の再生と学習モードには API キーは不要です。AI 解説と Jimaku 字幕検索だけ、使う機能のキーを設定してください。</p>
+      {loading && <p className="status-message" aria-live="polite">設定を読み込み中…</p>}
+      {loadError && (
+        <div className="status-message error" role="alert">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => void load()}>再試行</button>
+        </div>
+      )}
+      <section className="settings-section">
+        <h2>任意の拡張</h2>
       <p>
         <label>AI サービス<br />
           <select value={provider} onChange={(e) => {
@@ -117,6 +138,7 @@ export default function SettingsPage() {
           <input value={model} onChange={(e) => setModel(e.target.value)} style={{ width: 360 }} />
         </label>
       </p>
+      </section>
       <hr />
       <section className="settings-section">
         <h2>メディア</h2>
@@ -136,7 +158,7 @@ export default function SettingsPage() {
           <p className="settings-help">絶対パスを入力してください。保存したフォルダはアプリの再起動後から監視・スキャンされます。</p>
         )}
       </section>
-      <button onClick={save}>保存</button> {saved && '保存しました'}
+      <button onClick={save} disabled={loading || Boolean(loadError)}>保存</button> {saved && '保存しました'}
       {restartRequired && <p className="settings-restart">メディアフォルダを保存しました。アプリを再起動すると変更が反映されます。</p>}
       {saveError && <p className="settings-error">{saveError}</p>}
       <hr />
