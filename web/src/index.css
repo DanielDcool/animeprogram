@@ -222,6 +222,9 @@ input:focus { outline: none; border-color: var(--accent); }
 .vocab-sentence { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
 .vocab-src { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
 .vocab-src a { color: var(--accent); }
+.anki-export-status { color: var(--lime); font-size: 14px; }
+.anki-export-error { color: var(--warm); font-size: 14px; }
+.anki-export-help { color: var(--text-muted); font-size: 13px; }
 .del-btn { align-self: center; font-size: 12px; padding: 4px 9px; color: var(--text-muted); flex-shrink: 0; }
 .vocab-detail { max-width: 900px; }
 .vocab-back { display: inline-block; margin-bottom: 24px; font-size: 13px; }

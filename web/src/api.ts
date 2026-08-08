@@ -1,4 +1,5 @@
 import type {
+  AnkiExportResult,
   CatalogAnime,
   CatalogHome,
   Explanation,
@@ -42,6 +43,7 @@ export const api = {
   listVocab: () => fetch('/api/vocab').then((r) => j<VocabItem[]>(r)),
   getVocab: (id: number) => fetch(`/api/vocab/${id}`).then((r) => j<VocabDetail>(r)),
   deleteVocab: (id: number) => fetch(`/api/vocab/${id}`, { method: 'DELETE' }).then((r) => j(r)),
+  exportVocabToAnki: () => fetch('/api/vocab/export-anki', { method: 'POST' }).then((r) => j<AnkiExportResult>(r)),
   getSettings: () => fetch('/api/settings').then((r) => j<{
     ai_provider: 'anthropic' | 'deepseek' | 'openai' | 'gemini'; ai_model: string;
     anthropic_api_key_set: boolean; deepseek_api_key_set: boolean; openai_api_key_set: boolean;

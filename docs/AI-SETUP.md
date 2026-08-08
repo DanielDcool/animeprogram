@@ -62,6 +62,7 @@ Set up the application without exposing secrets, modifying personal media, addin
 | Need | Required action |
 | --- | --- |
 | Local word definitions | The user downloads JMdict Simplified, extracts it to `server/vendor/jmdict-eng.json`, then the agent may run `npm run import-jmdict -w server`. |
+| One-click Anki export | Requires the Anki desktop app and AnkiConnect add-on code `2055492159`. Installing the add-on and restarting Anki require user confirmation. Keep Anki running during export and keep AnkiConnect bound to its default `127.0.0.1:8765`; do not expose it to the network. |
 | AI explanation | The user enters a provider API key in the application's Settings page. Do not request the key in chat or write it to files. |
 | Jimaku subtitle matching | The user supplies their own Jimaku API key in Settings and chooses a first mapping. |
 | Different storage locations | The user can save an absolute media path in Settings and restart the app. `MEDIA_DIR` overrides that saved path for the current process. Set `DATA_DIR` only for the current process unless the user authorizes a persistent system change. |

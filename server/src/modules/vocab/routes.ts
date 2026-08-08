@@ -1,5 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import type { Db } from '../../db.js';
+import {
+  AnkiConnectError,
+  AnkiConnectUnavailableError,
+  createAnkiInvoke,
+  exportVocabToAnki,
+  type AnkiInvoke,
+  type VocabExportRow,
+} from './anki.js';
 
 interface SavePayload {
   kind: 'word' | 'sentence';
@@ -12,8 +20,9 @@ interface SavePayload {
   positionSec?: number;
 }
 
-export async function vocabRoutes(app: FastifyInstance, opts: { db: Db }) {
+export async function vocabRoutes(app: FastifyInstance, opts: { db: Db; ankiInvoke?: AnkiInvoke }) {
   const { db } = opts;
+  const ankiInvoke = opts.ankiInvoke ?? createAnkiInvoke();
 
   app.post<{ Body: SavePayload }>('/api/vocab', async (req, reply) => {
     const b = req.body;
@@ -68,20 +77,26 @@ export async function vocabRoutes(app: FastifyInstance, opts: { db: Db }) {
     return { ok: true };
   });
 
-  // Anki 取り込み用 TSV（front<TAB>back、改行は <br>）
-  app.get('/api/vocab/export.tsv', async (_req, reply) => {
-    const rows = db.prepare('SELECT * FROM vocab ORDER BY id').all() as any[];
-    const esc = (s: string) => s.replace(/\t/g, ' ').replace(/\r?\n/g, '<br>');
-    const lines = rows.map((r) => {
-      if (r.kind === 'word') {
-        const back = [r.reading, r.gloss, r.sentence ? `例: ${r.sentence}` : null].filter(Boolean).join('<br>');
-        return `${esc(r.word ?? '')}\t${esc(back)}`;
+  app.post('/api/vocab/export-anki', async (_req, reply) => {
+    const rows = db.prepare(`
+      SELECT v.kind, v.word, v.reading, v.gloss, v.sentence, v.translation,
+             v.position_sec AS positionSec, m.series, m.episode, m.id AS mediaId
+      FROM vocab v LEFT JOIN media m ON m.id = v.media_id
+      ORDER BY v.id
+    `).all() as VocabExportRow[];
+    try {
+      return await exportVocabToAnki(rows, ankiInvoke);
+    } catch (error) {
+      if (error instanceof AnkiConnectUnavailableError) {
+        return reply.code(503).send({
+          code: 'ANKI_CONNECT_UNAVAILABLE',
+          error: 'Anki を起動し、AnkiConnect をインストールしてください',
+        });
       }
-      return `${esc(r.sentence)}\t${esc(r.translation ?? '')}`;
-    });
-    reply
-      .header('content-type', 'text/tab-separated-values; charset=utf-8')
-      .header('content-disposition', 'attachment; filename="vocab.tsv"');
-    return lines.join('\n') + '\n';
+      if (error instanceof AnkiConnectError) {
+        return reply.code(502).send({ code: 'ANKI_CONNECT_ERROR', error: error.message });
+      }
+      throw error;
+    }
   });
 }

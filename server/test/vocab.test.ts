@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Fastify from 'fastify';
 import { createDb, type Db } from '../src/db.js';
+import { AnkiConnectUnavailableError, type AnkiInvoke } from '../src/modules/vocab/anki.js';
 import { vocabRoutes } from '../src/modules/vocab/routes.js';
 
 let db: Db;
-function makeApp() {
+function makeApp(ankiInvoke?: AnkiInvoke) {
   const app = Fastify();
-  app.register(vocabRoutes, { db });
+  app.register(vocabRoutes, { db, ankiInvoke });
   return app;
 }
 
@@ -116,21 +117,29 @@ describe('DELETE /api/vocab/:id', () => {
   });
 });
 
-describe('GET /api/vocab/export.tsv', () => {
-  it('exports word and sentence cards as front<TAB>back', async () => {
-    const app = makeApp();
-    await app.inject({ method: 'POST', url: '/api/vocab', payload: wordPayload });
-    await app.inject({ method: 'POST', url: '/api/vocab', payload: sentencePayload });
-    const res = await app.inject({ url: '/api/vocab/export.tsv' });
+describe('POST /api/vocab/export-anki', () => {
+  it('returns added and skipped counts from AnkiConnect', async () => {
+    await makeApp().inject({ method: 'POST', url: '/api/vocab', payload: wordPayload });
+    const invoke: AnkiInvoke = async (action) => {
+      if (action === 'modelNames') return ['tanku Anime'] as any;
+      if (action === 'canAddNotes') return [true] as any;
+      if (action === 'addNotes') return [123] as any;
+      return 1 as any;
+    };
+
+    const res = await makeApp(invoke).inject({ method: 'POST', url: '/api/vocab/export-anki' });
+
     expect(res.statusCode).toBe(200);
-    expect(res.headers['content-type']).toContain('text/tab-separated-values');
-    const lines = res.payload.trim().split('\n');
-    expect(lines).toHaveLength(2);
-    const word = lines.find((l) => l.startsWith('食べる\t'))!;
-    expect(word).toContain('たべる');
-    expect(word).toContain('to eat');
-    expect(word).toContain('食べたら帰ろうか');
-    const sent = lines.find((l) => l.startsWith('食べたら帰ろうか\t'))!;
-    expect(sent).toContain('吃完就回去吧');
+    expect(res.json()).toEqual({ deck: 'tanku Anime', added: 1, skipped: 0, total: 1 });
+  });
+
+  it('returns a clear 503 when AnkiConnect is unavailable', async () => {
+    await makeApp().inject({ method: 'POST', url: '/api/vocab', payload: wordPayload });
+    const invoke: AnkiInvoke = async () => { throw new AnkiConnectUnavailableError(); };
+
+    const res = await makeApp(invoke).inject({ method: 'POST', url: '/api/vocab/export-anki' });
+
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ code: 'ANKI_CONNECT_UNAVAILABLE' });
   });
 });

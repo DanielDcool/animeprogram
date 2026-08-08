@@ -48,7 +48,7 @@ server/src/
                editorial.ts(本地学习向推荐理由) routes.ts(/api/catalog/*)
     resource/  provider.ts(统一资源类型) nyaa.ts(RSS解析/排序/5分钟缓存)
                routes.ts(/api/catalog/anime/:id/resources)
-    vocab/     routes.ts(收藏 CRUD + TSV 导出)
+    vocab/     anki.ts(AnkiConnect客户端+卡片格式/去重) routes.ts(收藏 CRUD + 一键导出)
     misc/      routes.ts(progress + settings)
 web/src/
   api.ts                 唯一的后端调用出口（所有 fetch 都在这）
@@ -74,7 +74,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
 | AI 深度讲解：D 键，设置页可选 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini；统一输出{翻译/语法结构/表现/语气}，只给原句中出现的日语汉字标读音，解释新增术语不标；按格式版本/服务/模型/句子缓存 | ai/explain.ts |
 | jimaku 字幕匹配：候选选择一次→jimaku_mapping 记住→按 episode 自动下载(.srt优先,跳过压缩包) | jimaku/* |
-| 生词本：词/句收藏（带出处+时间戳，去重），详情页显示本地释义、既有 AI 缓存和精准播放链接，Anki TSV 导出 | vocab/routes.ts + VocabPage + VocabDetailPage |
+| 生词本：词/句收藏（带出处+时间戳，去重），详情页显示本地释义、既有 AI 缓存和精准播放链接；一键创建/更新 Anki 的 `tanku Anime` 牌组 | vocab/anki.ts + routes.ts + VocabPage + VocabDetailPage |
 | 观看进度：5 秒一存，暂停/离页补存；重新进入自动恢复，带 `?t=` 的生词链接一次性优先 | misc/routes.ts + playbackPosition.ts + PlayerPage |
 | 动画发现：首页实时显示当前季/上季、学习向 3 部推荐、日/英/罗马字搜索、响应式卡片 | catalog/* + DiscoverPage |
 | 作品详情：简介/评分/制作公司、AniList HTTPS 官方播放与官网链接、本地媒体库入口 | AnimeDetailPage |
@@ -84,7 +84,10 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 **已验证基线（截至 2026-08-08）**：
 
 - jimaku 用真实 key 联调通过：《葬送のフリーレン》第 1 话字幕真实下载并解析出 265 句；测试媒体已清理，系列映射保留。
-- 生词本在浏览器中完成“收藏单词 + 收藏句子 → 列表展示 → TSV 导出”链路；演示数据已清理。
+- 生词本在浏览器中完成“收藏单词 + 收藏句子 → 列表展示 → 详情与时间链接”链路；一键 Anki 按钮已用临时
+  AnkiConnect 模拟器验证成功/不可用提示，控制台无错误，临时生词和数据库已清理。真实 AnkiConnect 6
+  联调已创建 `tanku Anime` 牌组和同名卡片类型，将 3 条现有收藏写入带时间的来源链接；第二次导出新增 0、
+  跳过 3，确认去重有效。
 - JMdict Simplified 英文版 `3.6.2+20260720135044` 已导入：读取 217,974 个词条，SQLite 展开为 273,435 行；
   导入脚本已适配 `stream-json 3.5.0` 的 ESM 路径，并有微型 JSON 回归测试。
 - 动画发现用真实 AniList 数据完成浏览器链路：2026 年 7 月/4 月切换 → 搜索 `Frieren` →
@@ -110,7 +113,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   可播放 MP4。Jimaku 按前半 1426、后半 3547、特典 3546 分段取得 24 份日语 SRT，每集解析
   228–462 句。第 1/12/23 集真实播放页均为 1920×1080、`readyState=4`、无媒体错误；点字幕句可跳转、
   暂停、显示并分词。
-- 自动测试基线为 server 130 个、web 32 个；server/web TypeScript noEmit 与 web production build 通过。
+- 自动测试基线为 server 135 个、web 32 个；server/web TypeScript noEmit 与 web production build 通过。
   后续以实际 `npm test` 输出为准，不要只依赖这个数字。
 - 2026-08-01：播放器实际验证 DeepSeek `deepseek-v4-flash` 能生成四段式日语解说；同一字幕中的
   `こもる` 词典释义因异体字导致的重复已按释义去重，界面只显示一次。
@@ -168,7 +171,9 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   Anthropic、DeepSeek、OpenAI 与 Gemini。DeepSeek 按官方 JSON mode 调用，OpenAI 按 Responses API、
   Gemini 按 Interactions API 的严格 JSON Schema 调用；Gemini 请求关闭服务端保存。设置中所谓“Codex key”
   实际为 OpenAI Platform API key，与 ChatGPT / Codex 订阅分开。
-- **Anki 用 TSV 导出而非 AnkiConnect**：不依赖 Anki 在跑/装插件；以后要一键推送再加。
+- **AnkiConnect 一键推送，不直改 Anki 数据库**：真实使用已确认手动 TSV 导入摩擦过大。固定创建
+  `tanku Anime` 牌组和同名专用卡片类型，以内容哈希作为隐藏首字段去重；同词不同例句可以共存，重复点击只跳过
+  已有卡片。Anki/插件不可用时只返回提示，不影响本地生词；插件安装与真实牌组写入必须由用户明确确认。
 - **jimaku 半自动**：番名模糊匹配不可靠，首次人工选一次 + jimaku_mapping 记住，之后全自动。
 - **季番目录走服务端 AniList 适配层**：浏览器不直连 GraphQL；服务端统一非成人过滤、字段清理、
   HTTPS 资源筛选、错误映射和 10 分钟缓存。每页最多 20 条，不批量镜像 AniList 数据。
@@ -250,7 +255,7 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 ### 6.3 backlog（用户提过或预留，未排期）
 
 - 学习模式严格版：暂停不自动显示字幕，再按一键才显示（spec 里留过口子，等使用反馈）
-- AnkiConnect 一键推送；生词本内复习（简单间隔重复）
+- 生词本内复习（简单间隔重复）；AnkiConnect 自动推送和真实 Anki 联调已完成
 - 多字幕轨支持（一个视频多个 subtitle_file，切换）；字幕样式设置（字号等）
 - 转码兜底：ffmpeg 后台把 H.264 10-bit 等未验证源转为浏览器兼容 H.264
 - 播放页「继续/从头」选择；剧集自动连播
@@ -274,7 +279,7 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 ## 7. 开发约定
 
 - **TDD**：纯逻辑（解析、状态机、文件挑选、路由）先写 vitest 测试；外部依赖（ffmpeg/jimaku/AI API）
-  全部依赖注入 fake。跑法：`npm test`（当前 server 130 + web 32，改完必须全绿）。
+  全部依赖注入 fake。跑法：`npm test`（当前 server 135 + web 32，改完必须全绿）。
 - **模块模式**：新功能 = `server/src/modules/<name>/routes.ts`（Fastify plugin，opts 传 db 和可注入依赖）
   + `index.ts` 注册 + `web/src/api.ts` 加方法。别在组件里直接 fetch。
 - **UI**：颜色只用 index.css `:root` 变量；日文 UI 文案；学习模式相关逻辑进 learningMode.ts reducer（保持可测）。
@@ -292,7 +297,8 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 - **核心交互保持纯状态机**：播放、暂停、跳句、选择字幕句等行为先在 reducer 中定义和测试，再接 UI。
 - **全屏作用于视频容器而非 `<video>` 本身**：字幕是应用覆盖层，不属于原生视频元素；只把 `<video>`
   全屏会丢失字幕，因此隐藏原生全屏入口并提供包含状态徽标和字幕层的容器全屏按钮。
-- **可移植输出优先**：当前用 Anki TSV 而非强绑定插件；只有真实使用证明一键推送有价值时再引入 AnkiConnect。
+- **复习交接优先减少手工步骤**：用户已确认 TSV 手工导入不符合真实流程，现改用本机 AnkiConnect 一键推送；
+  仍保持明确外部依赖和失败隔离，不读取或直接修改 Anki collection 数据库。
 - **逐层自动化**：先让人工流程可靠，再自动匹配和串联；外部服务失败不能破坏本地播放与学习模式。
 - **发现数据少取、短缓存、不囤积**：AniList 每页最多 20 条并缓存 10 分钟；仅保存本地编辑理由，
   不把外部目录当作可永久镜像的项目资产。

@@ -40,6 +40,12 @@ export interface Explanation {
 export interface VocabDetail extends VocabItem {
   aiExplanation: Explanation | null;
 }
+export interface AnkiExportResult {
+  deck: string;
+  added: number;
+  skipped: number;
+  total: number;
+}
 
 export type SeasonName = 'WINTER' | 'SPRING' | 'SUMMER' | 'FALL';
 export interface SeasonRef { year: number; season: SeasonName }

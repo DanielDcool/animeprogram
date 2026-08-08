@@ -14,7 +14,7 @@ tanku Anime 是一个仍在早期阶段、自行部署在本机的 Web 应用。
 - 默认保持听力模式：暂停时显示当前句、重听、逐句跳转，或打开会跟随播放位置的字幕列表。
 - 在本地用 Kuromoji 分词，并用 JMdict 查询词义。
 - 仅在你主动请求时，让 Anthropic、DeepSeek、OpenAI 或 Google Gemini 生成结构化讲解；结果只缓存在本机。
-- 收藏单词和句子，在详情页查看保存的释义、已有 AI 讲解缓存和带时间的来源链接，并导出兼容 Anki 的 TSV 文件。
+- 收藏单词和句子，在详情页查看释义、已有 AI 讲解缓存和带时间的来源链接，再一键发送到名为 `tanku Anime` 的 Anki 牌组；已添加的卡片会自动跳过。
 - 可选地连接 Jimaku 匹配字幕，或把 magnet 链接交给你自己的本地下载器。应用不包含下载器 RPC、视频传输或远程媒体管理。
 
 ## 快速开始
@@ -72,6 +72,12 @@ npm start
 ```bash
 npm run import-jmdict -w server
 ```
+
+### 一键导出到 Anki
+
+在 Anki 中使用插件代码 `2055492159` 安装 [AnkiConnect](https://git.sr.ht/~foosoft/anki-connect)，重启 Anki，并在导出时保持 Anki 运行。进入生词页点击 **Anki に一括追加**，tanku Anime 会自动创建同名牌组和卡片类型，只添加新卡片，并在背面保留例句、出处和带时间的本地播放链接。
+
+应用只连接本机 `127.0.0.1:8765` 的 AnkiConnect，不会直接修改 Anki 数据库。Anki 或插件不可用时，本地生词不会受影响，页面会显示所需设置。
 
 ### AI 讲解
 

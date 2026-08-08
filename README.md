@@ -16,7 +16,7 @@ tanku Anime is an early-stage, self-hosted web app. Your media files stay on you
 - Stay in listening mode by default: pause to reveal the current line, replay it, jump between lines, or open a transcript that follows playback.
 - Tokenize Japanese locally with Kuromoji and look up JMdict definitions.
 - Ask Anthropic, DeepSeek, OpenAI, or Google Gemini for a structured explanation only when you want one. Results are cached locally.
-- Save words and sentences, open a detail view with the saved meaning, any existing AI explanation cache, and a timestamped source link, then export an Anki-compatible TSV file.
+- Save words and sentences, inspect their meaning, cached AI explanation, and timestamped source, then send them to a `tanku Anime` Anki deck with one click. Existing cards are skipped.
 - Optionally connect to Jimaku for subtitle matching, and hand a magnet link to your own local downloader. No downloader RPC, video transfer, or remote media lifecycle is built into the app.
 
 ## Quick start
@@ -74,6 +74,12 @@ For local word definitions, download a `jmdict-eng-*.json.zip` release from [JMd
 ```bash
 npm run import-jmdict -w server
 ```
+
+### One-click Anki export
+
+Install [AnkiConnect](https://git.sr.ht/~foosoft/anki-connect) in Anki with add-on code `2055492159`, restart Anki, and keep it running. On the vocabulary page, click **Anki に一括追加**. tanku Anime creates a `tanku Anime` deck and note type, sends only new cards, and includes the saved context and timestamped local playback link on the back.
+
+The integration talks only to AnkiConnect on `127.0.0.1:8765`; it never edits Anki's collection database directly. If Anki or AnkiConnect is unavailable, the vocabulary stays unchanged and the page shows the required setup.
 
 ### AI explanations
 
