@@ -46,6 +46,8 @@ npm start
 
 `node --version` 必须显示 `v22.x`。不要直接使用会随时间变化的 Node.js “LTS”软件包别名，除非确认它仍然安装 22 大版本。
 
+`npm start` 启动前会先做环境预检：Node.js 大版本不是 22 时会直接停止并给出安装指引；`PATH` 中缺少 `ffmpeg` 或 `ffprobe` 时会打印警告，但仍会启动。
+
 打开 [http://localhost:5173](http://localhost:5173)。应用会自动创建本地数据库，并默认监视用户主目录中的 `AnimeLibrary` 文件夹。你可以在**设置**页直接修改完整路径；保存后重启应用即可生效。
 
 媒体库为空时，页面会直接引导你设置媒体目录、放入第一段视频和可选字幕。仅播放本地视频不需要任何 API key；AI 讲解和 Jimaku 都可以稍后再配置。
@@ -70,11 +72,15 @@ npm start
 
 ### 日语词典
 
-如需本地单词释义，请从 [JMdict Simplified](https://github.com/scriptin/jmdict-simplified/releases) 下载 `jmdict-eng-*.json.zip`，解压到 `server/vendor/jmdict-eng.json`，再运行：
+如需本地单词释义，运行：
 
 ```bash
-npm run import-jmdict -w server
+npm run setup:jmdict
 ```
+
+该命令会自动下载已验证的 [JMdict Simplified](https://github.com/scriptin/jmdict-simplified) 版本（CC BY-SA 4.0，JMdict 版权归 [EDRDG](https://www.edrdg.org/) 所有），解压并导入本地数据库。加 `-- --latest` 使用最新版本，加 `-- --force` 强制重新下载。
+
+如果自动下载不可用，可从 [JMdict Simplified releases](https://github.com/scriptin/jmdict-simplified/releases) 手动下载 `jmdict-eng-*.json.zip`，解压到 `server/vendor/jmdict-eng.json`，再运行 `npm run import-jmdict -w server`。
 
 ### 一键导出到 Anki
 

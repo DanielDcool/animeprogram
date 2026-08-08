@@ -3,8 +3,26 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { defaultCheckCommand, runPrecheck } from './precheck.mjs';
 
 const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+const precheck = runPrecheck({
+  nodeVersion: process.version,
+  platform: process.platform,
+  checkCommand: defaultCheckCommand,
+  env: process.env,
+});
+for (const warning of precheck.warnings) {
+  console.warn(`\n[tanku Anime] WARNING\n${warning}\n`);
+}
+if (precheck.failures.length > 0) {
+  for (const failure of precheck.failures) {
+    console.error(`\n[tanku Anime] STARTUP CHECK FAILED\n${failure}\n`);
+  }
+  console.error('[tanku Anime] Set TANKU_SKIP_PRECHECK=1 to bypass these checks at your own risk.');
+  process.exit(1);
+}
 
 function resolvePackageBin(workspace, packageName) {
   const require = createRequire(path.join(rootDir, workspace, 'package.json'));

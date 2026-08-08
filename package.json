@@ -7,6 +7,7 @@
   "workspaces": ["server", "web"],
   "scripts": {
     "start": "node scripts/start.mjs",
+    "setup:jmdict": "npm run setup-jmdict -w server --",
     "verify:start": "node scripts/verify-start.mjs",
     "test": "npm test -w server && npm test -w web"
   }

@@ -83,6 +83,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | 本地媒体自动衔接：设置页可保存媒体目录，监听稳定文件后自动扫描；媒体库按相对目录分组且每组可独立折叠；已有 Jimaku 映射自动取字幕，无映射/失败时非打断提示 | misc/routes.ts + media/watcher.ts + jimaku/sync.ts + LibraryPage |
 | 开源首用与故障反馈：空媒体库三步引导；设置页区分必需媒体与可选扩展；媒体库/设置/单词本/解析有统一加载、错误、重试，单词删除支持一次撤销；未知路由显示 404 | LibraryPage + SettingsPage + VocabPage + AnalysisPanel + NotFoundPage |
 | 视觉系统改版：墨黑+米白单色系统，全部颜色/字体/圆角收敛为 index.css `:root` token；标识推导的四构件（方块 10px 圆角 / 选中态底边缺口 / 双横眼 / 短横指示器）贯穿导航、选集、解析面板；播放器字幕使用透明底高对比文字，避免遮挡画面 | index.css + components/BrandMark + App + 各页面 |
+| 开源安装降摩擦：`npm start` 启动预检（Node 22 硬检查、FFmpeg 分级警告、`TANKU_SKIP_PRECHECK=1` 跳过）；`npm run setup:jmdict` 一键下载/解压/导入词典，失败时给手动兜底指引 | scripts/precheck.mjs + scripts/start.mjs + analyze/jmdict-download.ts + server/scripts/setup-jmdict.ts |
 
 **已验证基线（截至 2026-08-08）**：
 
@@ -116,7 +117,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   可播放 MP4。Jimaku 按前半 1426、后半 3547、特典 3546 分段取得 24 份日语 SRT，每集解析
   228–462 句。第 1/12/23 集真实播放页均为 1920×1080、`readyState=4`、无媒体错误；点字幕句可跳转、
   暂停、显示并分词。
-- 自动测试基线为 server 136 个、web 37 个；server/web TypeScript noEmit 与 web production build 通过。
+- 自动测试基线为 server 154 个、web 37 个；server/web TypeScript noEmit 与 web production build 通过。
   后续以实际 `npm test` 输出为准，不要只依赖这个数字。
 - 2026-08-01：播放器实际验证 DeepSeek `deepseek-v4-flash` 能生成四段式日语解说；同一字幕中的
   `こもる` 词典释义因异体字导致的重复已按释义去重，界面只显示一次。
@@ -170,6 +171,12 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   chip + 双横眼 AI 标签；ライブラリ显示 `LOCAL · 4 FOLDERS · 38 FILES` 统计与短横指示器；単語帳两列布局
   与 `SAVED · N WORDS · N SENTENCES` 统计正常。全程浏览器控制台无 warning/error；server 136 + web 36 测试、
   两端 tsc noEmit 与 web production build 全部通过。验证期间自动播放使该集进度短暂前进，已恢复为原 113 秒。
+- 2026-08-08：启动预检与 JMdict 一键安装落地。预检纯逻辑有 8 个单测（版本判定、缺失分级、平台文案、跳过开关）；
+  真实验证 `npm run verify:start` 正常通过，PATH 无 ffmpeg 时 `npm start` 打印 macOS 安装提示后仍继续启动。
+  `setup:jmdict` 用隔离的 `JMDICT_VENDOR_DIR`/`DATA_DIR` 真网实跑：GitHub API 解析锁定 tag → 下载 10.9 MiB →
+  解压 `jmdict-eng-3.6.2.json` → 导入 217,974 词条（与既有导入基线一致）并输出 EDRDG / CC BY-SA 署名；再次运行
+  命中「Reusing existing」跳过下载；`--tag bogus-tag` 走 404 错误路径并输出手动兜底指引，退出码非 0。
+  Node 版本硬失败分支仅有单元覆盖，尚未用真实的错误版本 Node 实跑。
 
 ## 4. 关键决策记录（为什么这么做）
 
@@ -225,6 +232,16 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   成功状态用短横指示器。字体为 Space Grotesk（仅品牌字标）/ Noto Sans JP（正文）/ JetBrains Mono（标签与
   快捷键），经 Google Fonts CDN 引入并带系统字体回退，离线时自动降级为 Hiragino Sans 等系统字体。
   解析面板整面反转为米白，是页面上唯一的大面积亮色，用来强调「学习内容」优先级。
+- **启动预检分级：Node 版本硬失败，FFmpeg 只警告**（2026-08-08）：better-sqlite3 锁 v11 使非 22 大版本
+  必然坏在难排查的位置，因此 `npm start` 先检查并带指引退出；FFmpeg 缺失不阻断发现页、生词本和已导入媒体，
+  CI runner 也不保证有 ffmpeg，故只打印按平台的警告后继续启动。`TANKU_SKIP_PRECHECK=1` 为逃生口。
+  预检逻辑在 `scripts/precheck.mjs`（纯函数 + 注入 exec，保持 start.mjs 纯 Node 可运行），
+  配套 `precheck.d.mts` 声明供 server 测试与 `tsc --noEmit` 引用。
+- **JMdict 一键安装默认锁定已验证 release**（2026-08-08）：`npm run setup:jmdict` 默认下载
+  `3.6.2+20260720135044`（与导入基线一致），`--latest` / `--tag` / `JMDICT_TAG` 可覆盖。zip 解压用零依赖
+  fflate（`unzipSync` 一次性 buffer，设置脚本场景可接受；测试用 `zipSync` 造内存夹具，不提交二进制）。
+  下载先写 `.download` 临时文件、成功后 rename，失败不留半成品并提示手动 import-jmdict 兜底。
+  `JMDICT_VENDOR_DIR` 只用于验证与测试隔离，正常用户不需要设置。
 
 ## 5. 已知小问题 / 待打磨
 
@@ -298,6 +315,10 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
   精确 Node 22、FFmpeg/ffprobe、better-sqlite3、PowerShell 路径、magnet 下载器和 HEVC 边界。Windows 空媒体
   全新安装已通过公开仓库的一句指令验证：依赖、测试、构建、单一 `npm start`、后端健康接口和前端页面均正常。
   后续只剩用自有 H.264 样片完成真实媒体播放闭环。
+- **已完成（2026-08-08）**：`npm start` 启动预检（Node 22 硬检查 + FFmpeg 分级警告）与 `npm run setup:jmdict`
+  一键词典安装落地，三语 README 与 `docs/AI-SETUP.md` 同步。设计见
+  `docs/superpowers/specs/2026-08-08-onboarding-precheck-and-jmdict-setup-design.md`。安装侧剩余的主要摩擦是
+  better-sqlite3 对 Node 22 的锁定；`node:sqlite` 迁移评估未排期。
 - 为 README 提供无版权风险的截图或短演示；可用空媒体库或演示数据拍摄，不能纳入未授权动画片段、字幕或个人文件名。
 - 发布第一个带清晰版本号和变更说明的 GitHub Release；在此之前不要把仓库的预发布状态写成稳定版。
 - 评估将本地 SQLite 中的 API key 改放入操作系统凭证库；公开发布前需先明确其本地存储和备份风险。

@@ -48,6 +48,8 @@ npm start
 
 `node --version` must report `v22.x`. Do not use a moving Node.js "LTS" package alias unless it still resolves to major version 22.
 
+`npm start` runs a quick environment check first: it stops with install guidance when the Node.js major version is not 22, and prints a warning (while still starting) when `ffmpeg` or `ffprobe` is missing from `PATH`.
+
 Open [http://localhost:5173](http://localhost:5173). The application creates its local database automatically and watches the `AnimeLibrary` folder in your home directory by default. You can edit the full path in **Settings**; restart the application after saving it.
 
 When the library is empty, the page walks through choosing a media folder, adding the first video, and optionally adding subtitles. Local playback needs no API key; AI explanations and Jimaku can be configured later.
@@ -72,11 +74,15 @@ npm start
 
 ### Japanese dictionary
 
-For local word definitions, download a `jmdict-eng-*.json.zip` release from [JMdict Simplified](https://github.com/scriptin/jmdict-simplified/releases), extract it to `server/vendor/jmdict-eng.json`, then run:
+For local word definitions, run:
 
 ```bash
-npm run import-jmdict -w server
+npm run setup:jmdict
 ```
+
+This downloads a verified [JMdict Simplified](https://github.com/scriptin/jmdict-simplified) release (CC BY-SA 4.0; JMdict is the property of the [EDRDG](https://www.edrdg.org/)), extracts it, and imports it into the local database. Pass `-- --latest` for the newest release or `-- --force` to re-download.
+
+If the automatic download is unavailable, download a `jmdict-eng-*.json.zip` release from [JMdict Simplified releases](https://github.com/scriptin/jmdict-simplified/releases) manually, extract it to `server/vendor/jmdict-eng.json`, then run `npm run import-jmdict -w server`.
 
 ### One-click Anki export
 

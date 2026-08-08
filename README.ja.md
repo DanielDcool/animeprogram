@@ -46,6 +46,8 @@ npm start
 
 `node --version` は必ず `v22.x` を表示する必要があります。Node.js の可変な「LTS」パッケージ別名は、メジャーバージョン 22 を指すことを確認できない限り使わないでください。
 
+`npm start` は起動前に環境チェックを行います。Node.js のメジャーバージョンが 22 以外の場合は案内を表示して停止し、`PATH` に `ffmpeg` または `ffprobe` が見つからない場合は警告を表示したうえで起動します。
+
 [http://localhost:5173](http://localhost:5173) を開きます。アプリはローカルデータベースを自動作成し、既定でホームフォルダー内の `AnimeLibrary` を監視します。フルパスは**設定**ページで変更でき、保存後にアプリを再起動すると反映されます。
 
 ライブラリが空の場合は、メディアフォルダの指定、最初の動画、任意の字幕を置く手順が画面に表示されます。ローカル再生に API key は不要で、AI 解説と Jimaku は後から設定できます。
@@ -70,11 +72,15 @@ npm start
 
 ### 日本語辞書
 
-ローカルの語義検索を使うには、[JMdict Simplified](https://github.com/scriptin/jmdict-simplified/releases) から `jmdict-eng-*.json.zip` をダウンロードし、`server/vendor/jmdict-eng.json` に展開してから、次を実行します。
+ローカルの語義検索を使うには、次を実行します。
 
 ```bash
-npm run import-jmdict -w server
+npm run setup:jmdict
 ```
+
+検証済みの [JMdict Simplified](https://github.com/scriptin/jmdict-simplified) リリース（CC BY-SA 4.0、JMdict は [EDRDG](https://www.edrdg.org/) の著作物）を自動でダウンロードし、展開してローカルデータベースへ取り込みます。最新リリースを使う場合は `-- --latest`、再ダウンロードする場合は `-- --force` を付けてください。
+
+自動ダウンロードが使えない場合は、[JMdict Simplified releases](https://github.com/scriptin/jmdict-simplified/releases) から `jmdict-eng-*.json.zip` を手動でダウンロードし、`server/vendor/jmdict-eng.json` に展開してから `npm run import-jmdict -w server` を実行してください。
 
 ### Anki へワンクリック追加
 

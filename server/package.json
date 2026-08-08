@@ -5,13 +5,15 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
-    "import-jmdict": "tsx scripts/import-jmdict.ts"
+    "import-jmdict": "tsx scripts/import-jmdict.ts",
+    "setup-jmdict": "tsx scripts/setup-jmdict.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.4",
     "@fastify/cors": "^11.3.0",
     "better-sqlite3": "^11.10.0",
     "fastify": "^5.11.2",
+    "fflate": "^0.8.3",
     "kuromoji": "^0.1.2"
   },
   "devDependencies": {
