@@ -19,7 +19,7 @@ tanku Anime 是一个仍在早期阶段、自行部署在本机的 Web 应用。
 
 ## 快速开始
 
-**运行要求：** Node.js 22.x，以及已加入 `PATH` 的 `ffmpeg` 和 `ffprobe`。完整应用和真实媒体流程已在 macOS 手动验证。Windows CI 会检查依赖安装、测试、构建、启动、SQLite 初始化、目录监听、网页和健康接口；Windows 真实媒体播放仍需在实体电脑上最终确认。
+**运行要求：** Node.js 22.x，以及已加入 `PATH` 的 `ffmpeg` 和 `ffprobe`。完整应用和真实媒体流程已在 macOS 手动验证；一台全新 Windows 电脑也已通过一句话 AI 安装流程完成依赖安装、测试、构建、`npm start`、网页和健康接口验证。Windows 真实媒体播放仍需在实体电脑上最终确认。
 
 macOS：
 
@@ -147,4 +147,4 @@ tanku Anime 采用 [MIT License](LICENSE) 发布。
 
 ## 项目状态
 
-项目已公开，并配置了跨平台 CI、贡献与安全策略。macOS 已完成完整手动验证；Windows 已加入兼容修复和自动化覆盖，但实体电脑上的真实媒体播放仍待确认。在大范围推广前，还需要一张无版权风险的截图或一段短演示。当前路线图见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
+项目已公开，并配置了跨平台 CI、贡献与安全策略。macOS 已完成完整手动验证；Windows 已加入兼容修复和自动化覆盖，并完成全新安装与启动实测，但实体电脑上的真实媒体播放仍待确认。在大范围推广前，还需要一张无版权风险的截图或一段短演示。当前路线图见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。

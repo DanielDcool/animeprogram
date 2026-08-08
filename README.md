@@ -21,7 +21,7 @@ tanku Anime is an early-stage, self-hosted web app. Your media files stay on you
 
 ## Quick start
 
-**Requirements:** Node.js 22.x and FFmpeg, with both `ffmpeg` and `ffprobe` available on `PATH`. The full app and real media workflow are manually verified on macOS. Windows is included in CI for dependency installation, tests, build, startup, SQLite initialization, directory watching, the web page, and the health endpoint; real Windows media playback still needs a physical-machine check.
+**Requirements:** Node.js 22.x and FFmpeg, with both `ffmpeg` and `ffprobe` available on `PATH`. The full app and real media workflow are manually verified on macOS. A clean Windows machine has also completed the one-sentence AI setup flow through dependency installation, tests, build, `npm start`, the web page, and the health endpoint; real Windows media playback still needs a physical-machine check.
 
 macOS:
 
@@ -149,4 +149,4 @@ tanku Anime is released under the [MIT License](LICENSE).
 
 ## Project status
 
-The project is public and has cross-platform CI plus contribution and security policies. macOS has full manual verification; Windows now has compatibility fixes and automated coverage, with physical-machine media playback still pending. A copyright-safe screenshot or short demo is also needed before broader promotion. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the current roadmap.
+The project is public and has cross-platform CI plus contribution and security policies. macOS has full manual verification; Windows has compatibility fixes, automated coverage, and a verified clean installation/startup, with physical-machine media playback still pending. A copyright-safe screenshot or short demo is also needed before broader promotion. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the current roadmap.
