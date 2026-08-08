@@ -121,6 +121,8 @@ The on-screen control chips are clickable as well as keyboard shortcuts.
 
 Only the common learning controls stay visible on screen; `[` / `]` remain advanced keyboard-only controls. On desktop, drag the divider between the player and analysis panel to resize it. Use the in-app full-screen button so subtitles remain visible in full screen.
 
+The always-visible subtitle switch is stored in the current browser and keeps its last setting across reloads, returning to the player, and episode changes.
+
 The analysis panel keeps the selected line while you replay it, even when subtitles are hidden. It changes only after you pause on or select another line.
 
 Reopening a video resumes from its last saved viewing position. A source link from the vocabulary detail page takes priority once and opens directly at that saved sentence time.

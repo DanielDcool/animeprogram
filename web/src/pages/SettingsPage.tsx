@@ -119,12 +119,12 @@ export default function SettingsPage() {
         </label>
       </p>
       {provider === 'openai' && (
-        <p style={{ color: '#888', fontSize: 13 }}>
+        <p className="settings-help">
           OpenAI Platform の API キーを使用します。ChatGPT / Codex のサブスクリプションとは別です。
         </p>
       )}
       {provider === 'gemini' && (
-        <p style={{ color: '#888', fontSize: 13 }}>
+        <p className="settings-help">
           Google AI Studio で作成した Gemini API キーを使用します。
         </p>
       )}
@@ -158,11 +158,11 @@ export default function SettingsPage() {
           <p className="settings-help">絶対パスを入力してください。保存したフォルダはアプリの再起動後から監視・スキャンされます。</p>
         )}
       </section>
-      <button onClick={save} disabled={loading || Boolean(loadError)}>保存</button> {saved && '保存しました'}
+      <button className="solid-button" onClick={save} disabled={loading || Boolean(loadError)}>保存</button> {saved && '保存しました'}
       {restartRequired && <p className="settings-restart">メディアフォルダを保存しました。アプリを再起動すると変更が反映されます。</p>}
       {saveError && <p className="settings-error">{saveError}</p>}
       <hr />
-      <p style={{ color: '#888', fontSize: 13 }}>
+      <p className="settings-help">
         辞書データ: server/vendor/jmdict-eng.json を置いて npm run import-jmdict -w server
       </p>
     </main>

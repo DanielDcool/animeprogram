@@ -32,7 +32,7 @@ export default function AnimeDetailPage() {
     <main className="anime-detail">
       <section
         className="detail-banner"
-        style={anime.bannerImage ? { backgroundImage: `linear-gradient(0deg, var(--bg) 0%, rgba(14, 17, 23, .35) 70%), url("${anime.bannerImage}")` } : undefined}
+        style={anime.bannerImage ? { backgroundImage: `linear-gradient(0deg, var(--bg) 0%, rgba(11, 11, 10, .35) 70%), url("${anime.bannerImage}")` } : undefined}
       >
         <Link className="detail-back" to="/">← 新番一覧へ</Link>
       </section>

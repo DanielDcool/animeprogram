@@ -4,6 +4,8 @@ import { api } from '../api';
 import { scoreLabel, seasonLabel, statusLabel } from '../catalog/view';
 import type { CatalogAnime, CatalogHome } from '../types';
 
+const MARQUEE_TEXT = '聞こえるまで、字幕は出さない · ';
+
 function AnimeCard({ anime }: { anime: CatalogAnime }) {
   return (
     <Link className="anime-card" to={`/anime/${anime.id}`}>
@@ -99,8 +101,10 @@ export default function DiscoverPage() {
   return (
     <main className="discover-page">
       <section className="discover-intro">
-        <p className="eyebrow">日本語で、次の一本へ。</p>
-        <h1>今季のアニメを見つけて、<br />そのまま学ぶ。</h1>
+        <div>
+          <p className="eyebrow">日本語で、次の一本へ。</p>
+          <h1>今季のアニメを見つけて、<br />そのまま学ぶ。</h1>
+        </div>
         <form className="anime-search" onSubmit={search} role="search">
           <input
             value={query}
@@ -137,15 +141,15 @@ export default function DiscoverPage() {
           {hero && (
             <section
               className="catalog-hero"
-              style={hero.bannerImage ? { backgroundImage: `linear-gradient(90deg, rgba(14, 17, 23, .98) 0%, rgba(14, 17, 23, .78) 48%, rgba(14, 17, 23, .18) 100%), url("${hero.bannerImage}")` } : undefined}
+              style={hero.bannerImage ? { backgroundImage: `linear-gradient(90deg, rgba(11, 11, 10, .98) 0%, rgba(11, 11, 10, .86) 46%, rgba(11, 11, 10, .18) 100%), url("${hero.bannerImage}")` } : undefined}
             >
               <div className="hero-content">
                 <span className="hero-badge">{hero.recommendation?.badge ?? '今季の注目作'}</span>
                 <h2>{hero.title}</h2>
                 <p className="hero-romaji">{hero.titleRomaji}</p>
                 <p className="hero-reason">{hero.recommendation?.reason ?? '今季の人気作から、次に見る一本を選びました。'}</p>
-                <div className="hero-meta"><span>★ {scoreLabel(hero.score)}</span><span>{statusLabel(hero.status)}</span></div>
-                <Link className="primary-link" to={`/anime/${hero.id}`}>作品を見る</Link>
+                <div className="hero-meta"><span>SCORE {scoreLabel(hero.score)}</span><span>{statusLabel(hero.status)}</span></div>
+                <Link className="primary-link" to={`/anime/${hero.id}`}>作品を見る →</Link>
               </div>
             </section>
           )}
@@ -157,7 +161,11 @@ export default function DiscoverPage() {
             </div>
             <div className="editorial-grid">
               {home.featured.map((anime, index) => (
-                <Link to={`/anime/${anime.id}`} className="editorial-card" key={anime.id}>
+                <Link
+                  to={`/anime/${anime.id}`}
+                  className={`editorial-card surface-${['bone', 'warm', 'ink'][index % 3]}`}
+                  key={anime.id}
+                >
                   <span className="pick-number">0{index + 1}</span>
                   <div><span className="pick-badge">{anime.recommendation?.badge ?? '注目作'}</span><h3>{anime.title}</h3><p>{anime.recommendation?.reason}</p></div>
                 </Link>
@@ -178,6 +186,12 @@ export default function DiscoverPage() {
         </>
       )}
 
+      <div className="marquee" aria-hidden="true">
+        <div className="marquee-track">
+          <span>{MARQUEE_TEXT.repeat(8)}</span>
+          <span>{MARQUEE_TEXT.repeat(8)}</span>
+        </div>
+      </div>
       <footer className="catalog-footer">作品データ：AniList。配信先は各公式サービスで確認してください。</footer>
     </main>
   );

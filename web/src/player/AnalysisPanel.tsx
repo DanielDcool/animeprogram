@@ -10,6 +10,10 @@ interface Props {
   explainRequest: { id: number; sentence: string | null };
 }
 
+function fmtTime(sec: number): string {
+  return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+}
+
 export default function AnalysisPanel({ sentence, context, mediaId, positionSec, explainRequest }: Props) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [active, setActive] = useState<number | null>(null);
@@ -94,7 +98,7 @@ export default function AnalysisPanel({ sentence, context, mediaId, positionSec,
 
   return (
     <div className="panel-body">
-      <h2>現在のセリフ</h2>
+      <h2>現在のセリフ · {fmtTime(positionSec)}</h2>
 
       {/* 原句：選択中の語をハイライト */}
       <div className="sentence">
@@ -153,7 +157,7 @@ export default function AnalysisPanel({ sentence, context, mediaId, positionSec,
       )}
 
       <div className="explain-box">
-        <div className="ai-label">AI 講解（D で生成）</div>
+        <div className="ai-label"><span className="eyes" aria-hidden="true"><i /><i /></span>AI 講解 · D で生成</div>
         {explanation ? (
           <dl>
             <dt>翻訳</dt><dd>{explanation.translation}</dd>

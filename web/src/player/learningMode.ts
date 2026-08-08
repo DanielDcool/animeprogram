@@ -8,6 +8,10 @@ export interface LearnState {
 
 export const initialState: LearnState = { paused: false, revealed: false, alwaysOn: false };
 
+export function storedAlwaysOnPreference(value: string | null): boolean {
+  return value === 'true';
+}
+
 export const REPLAY_PREVIOUS_WINDOW_MS = 400;
 
 export type LearnAction =

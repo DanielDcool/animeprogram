@@ -7,12 +7,17 @@ import VocabDetailPage from './pages/VocabDetailPage';
 import DiscoverPage from './pages/DiscoverPage';
 import AnimeDetailPage from './pages/AnimeDetailPage';
 import NotFoundPage from './pages/NotFoundPage';
+import BrandMark from './components/BrandMark';
 
 export default function App() {
   return (
     <div className="app">
       <nav className="topnav">
-        <Link className="brand" to="/">tanku Anime</Link>
+        <Link className="brand" to="/" aria-label="tanku Anime ホーム">
+          <BrandMark size={22} />
+          <span className="brand-name">tanku</span>
+          <span className="brand-sub">ANIME</span>
+        </Link>
         <div className="nav-links">
           <NavLink to="/" end>見つける</NavLink>
           <NavLink to="/library">ライブラリ</NavLink>

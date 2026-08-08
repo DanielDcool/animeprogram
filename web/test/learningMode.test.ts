@@ -5,6 +5,7 @@ import {
   currentCueIndex,
   replayTargetIndex,
   analysisCueIndex,
+  storedAlwaysOnPreference,
   type LearnState,
 } from '../src/player/learningMode';
 import type { Cue } from '../src/types';
@@ -102,5 +103,13 @@ describe('reduce', () => {
 
   it('subtitle hidden by default', () => {
     expect(initialState.alwaysOn || initialState.revealed).toBe(false);
+  });
+});
+
+describe('storedAlwaysOnPreference', () => {
+  it('restores only an explicitly enabled subtitle switch', () => {
+    expect(storedAlwaysOnPreference('true')).toBe(true);
+    expect(storedAlwaysOnPreference('false')).toBe(false);
+    expect(storedAlwaysOnPreference(null)).toBe(false);
   });
 });

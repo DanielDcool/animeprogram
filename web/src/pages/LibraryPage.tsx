@@ -131,7 +131,10 @@ export default function LibraryPage() {
   return (
     <main className="library">
       <header>
-        <h1>ライブラリ</h1>
+        <div>
+          <p className="page-label">LOCAL · {groups.length} FOLDERS · {items.length} FILES</p>
+          <h1>ライブラリ</h1>
+        </div>
         <button onClick={scan} disabled={scanning}>{scanning ? 'スキャン中…' : 'フォルダをスキャン'}</button>
       </header>
       {needsMapping > 0 && (

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { api, joinApiBase } from '../api';
 import type { MediaItem, SubtitleData } from '../types';
@@ -8,6 +16,7 @@ import {
   currentCueIndex,
   replayTargetIndex,
   analysisCueIndex,
+  storedAlwaysOnPreference,
   type LearnState,
   type LearnAction,
   type Effect,
@@ -25,6 +34,7 @@ import { linkedPlaybackPosition, playbackStartPosition } from '../player/playbac
 import { episodeNavigation } from '../player/episodeNavigation';
 
 const PLAYER_WIDTH_KEY = 'player-main-width';
+const SUBTITLE_ALWAYS_ON_KEY = 'player-subtitles-always-on';
 
 export default function PlayerPage() {
   const { id } = useParams();
@@ -40,7 +50,10 @@ export default function PlayerPage() {
   const lastReplayAtRef = useRef<number | null>(null);
   const [subs, setSubs] = useState<SubtitleData | null>(null);
   const [subError, setSubError] = useState(false);
-  const [learn, setLearn] = useState<LearnState>(initialState);
+  const [learn, setLearn] = useState<LearnState>(() => ({
+    ...initialState,
+    alwaysOn: storedAlwaysOnPreference(localStorage.getItem(SUBTITLE_ALWAYS_ON_KEY)),
+  }));
   const [time, setTime] = useState(0);
   const [selectedAnalysisCueIdx, setSelectedAnalysisCueIdx] = useState<number | null>(null);
   const [panelMode, setPanelMode] = useState<'analysis' | 'transcript'>('analysis');
@@ -55,6 +68,10 @@ export default function PlayerPage() {
   }, [playerWidth]);
 
   useEffect(() => {
+    localStorage.setItem(SUBTITLE_ALWAYS_ON_KEY, String(learn.alwaysOn));
+  }, [learn.alwaysOn]);
+
+  useEffect(() => {
     const onFullscreenChange = () => setFullscreen(document.fullscreenElement === videoWrapRef.current);
     document.addEventListener('fullscreenchange', onFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
@@ -64,7 +81,7 @@ export default function PlayerPage() {
     let cancelled = false;
     setSubs(null);
     setSubError(false);
-    setLearn({ ...initialState });
+    setLearn((state) => ({ ...initialState, alwaysOn: state.alwaysOn }));
     setTime(0);
     setSelectedAnalysisCueIdx(null);
     setPanelMode('analysis');
@@ -254,6 +271,21 @@ export default function PlayerPage() {
     else await wrap.requestFullscreen();
   }
 
+  function handlePanelSpace(e: ReactKeyboardEvent<HTMLElement>) {
+    if (e.code !== 'Space') return;
+    if ((e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable="true"]')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.repeat) togglePause();
+  }
+
+  function blockPanelSpaceKeyUp(e: ReactKeyboardEvent<HTMLElement>) {
+    if (e.code !== 'Space') return;
+    if ((e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable="true"]')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
   return (
     <main
       ref={pageRef}
@@ -280,13 +312,13 @@ export default function PlayerPage() {
             controls
             controlsList="nofullscreen"
             autoPlay
-            onKeyDown={(e) => {
+            onKeyDownCapture={(e) => {
               if (e.code !== 'Space') return;
               e.preventDefault();
               e.stopPropagation();
               if (!e.repeat) togglePause();
             }}
-            onKeyUp={(e) => {
+            onKeyUpCapture={(e) => {
               if (e.code !== 'Space') return;
               e.preventDefault();
               e.stopPropagation();
@@ -384,7 +416,11 @@ export default function PlayerPage() {
           rememberPlayerWidth(width);
         }}
       />
-      <aside className="analysis-panel">
+      <aside
+        className="analysis-panel"
+        onKeyDownCapture={handlePanelSpace}
+        onKeyUpCapture={blockPanelSpaceKeyUp}
+      >
         <div className="panel-tabs">
           <button className={`tab${panelMode === 'analysis' ? ' active' : ''}`} onClick={() => setPanelMode('analysis')}>解析</button>
           <button className={`tab${panelMode === 'transcript' ? ' active' : ''}`} onClick={() => setPanelMode('transcript')}>字幕一覧</button>

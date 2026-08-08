@@ -82,11 +82,17 @@ export default function VocabPage() {
     }
   }
 
+  const wordCount = items.filter((item) => item.kind === 'word').length;
+  const sentenceCount = items.length - wordCount;
+
   return (
     <main className="library">
       <header>
-        <h1>単語帳</h1>
-        <button onClick={exportToAnki} disabled={items.length === 0 || exporting}>
+        <div>
+          <p className="page-label">SAVED · {wordCount} WORDS · {sentenceCount} SENTENCES</p>
+          <h1>単語帳</h1>
+        </div>
+        <button className="solid-button" onClick={exportToAnki} disabled={items.length === 0 || exporting}>
           {exporting ? 'Anki に送信中…' : 'Anki に一括追加'}
         </button>
       </header>
@@ -114,6 +120,16 @@ export default function VocabPage() {
       <ul className="vocab-list">
         {items.map((v) => (
           <li key={v.id}>
+            <div className="vocab-side">
+              {v.series ? (
+                v.mediaId != null
+                  ? <Link to={playbackUrl(v.mediaId, v.positionSec)}>{v.series}{v.episode != null && ` 第${v.episode}話`}</Link>
+                  : <span>{v.series}{v.episode != null && ` 第${v.episode}話`}</span>
+              ) : (
+                <span>—</span>
+              )}
+              {v.positionSec != null && <div className="vocab-time">{fmtTime(v.positionSec)}</div>}
+            </div>
             <div className="vocab-main">
               <Link className="vocab-detail-link" to={`/vocab/${v.id}`}>
                 {v.kind === 'word' ? (
@@ -130,14 +146,6 @@ export default function VocabPage() {
                   </>
                 )}
               </Link>
-              <div className="vocab-src">
-                {v.series && (
-                  v.mediaId != null
-                    ? <Link to={playbackUrl(v.mediaId, v.positionSec)}>{v.series}{v.episode != null && ` 第${v.episode}話`}</Link>
-                    : <span>{v.series}{v.episode != null && ` 第${v.episode}話`}</span>
-                )}
-                {v.positionSec != null && <span> {fmtTime(v.positionSec)}</span>}
-              </div>
             </div>
             <button className="del-btn" onClick={() => void remove(v)} title="削除" aria-label={`${v.word ?? v.sentence}を削除`}>✕</button>
           </li>

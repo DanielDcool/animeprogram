@@ -68,7 +68,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 |------|----------|
 | 媒体扫描：mkv 自动 remux 成 .play.mp4、抽内嵌字幕、外部 `.ja.srt` 优先 | media/scanner.ts |
 | H.265/HEVC Main 10 只在已验证的 macOS 浏览器路径 remux；Windows/Linux 保守标记「要トランスコード」，H.264 10-bit 等不兼容源同样不放行 | media/ffmpeg.ts decidePlayability |
-| 学习模式：默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显；[ ] 偏移±100ms；右侧解析独立保持已选句，重听时不消失；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
+| 学习模式：首次默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显且开关在浏览器本地保持；[ ] 偏移±100ms；右侧解析独立保持已选句，重听时不消失；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
 | 桌面播放器布局：视频/解析面板之间可拖动调宽并记住宽度；自定义全屏会将视频、状态和字幕层一起全屏 | PlayerPage + playerLayout.ts |
 | 播放器同目录选集：列出当前物理目录中的可播放视频，提供上一话、下一话与直接选集；切集时重置字幕、学习句和讲解状态 | PlayerPage + episodeNavigation.ts |
 | 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，打开即定位当前句，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
@@ -82,6 +82,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | 本机下载交接：按季度过滤错季结果，整季/可直接播放/1080p/可信/多字幕智能排序，再用合法 magnet 交给本机下载器 | resource/* + ResourceResults |
 | 本地媒体自动衔接：设置页可保存媒体目录，监听稳定文件后自动扫描；媒体库按相对目录分组且每组可独立折叠；已有 Jimaku 映射自动取字幕，无映射/失败时非打断提示 | misc/routes.ts + media/watcher.ts + jimaku/sync.ts + LibraryPage |
 | 开源首用与故障反馈：空媒体库三步引导；设置页区分必需媒体与可选扩展；媒体库/设置/单词本/解析有统一加载、错误、重试，单词删除支持一次撤销；未知路由显示 404 | LibraryPage + SettingsPage + VocabPage + AnalysisPanel + NotFoundPage |
+| 视觉系统改版：墨黑+米白单色系统，全部颜色/字体/圆角收敛为 index.css `:root` token；标识推导的四构件（方块 10px 圆角 / 选中态底边缺口 / 双横眼 / 短横指示器）贯穿导航、选集、解析面板；播放器字幕使用透明底高对比文字，避免遮挡画面 | index.css + components/BrandMark + App + 各页面 |
 
 **已验证基线（截至 2026-08-08）**：
 
@@ -115,7 +116,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   可播放 MP4。Jimaku 按前半 1426、后半 3547、特典 3546 分段取得 24 份日语 SRT，每集解析
   228–462 句。第 1/12/23 集真实播放页均为 1920×1080、`readyState=4`、无媒体错误；点字幕句可跳转、
   暂停、显示并分词。
-- 自动测试基线为 server 136 个、web 36 个；server/web TypeScript noEmit 与 web production build 通过。
+- 自动测试基线为 server 136 个、web 37 个；server/web TypeScript noEmit 与 web production build 通过。
   后续以实际 `npm test` 输出为准，不要只依赖这个数字。
 - 2026-08-01：播放器实际验证 DeepSeek `deepseek-v4-flash` 能生成四段式日语解说；同一字幕中的
   `こもる` 词典释义因异体字导致的重复已按释义去重，界面只显示一次。
@@ -156,12 +157,19 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   的自动刷新期间保持，离开页面后不持久化。
 - 2026-08-08：生词可进入详情页查看保存释义、来源句和已有 AI 缓存；来源链接携带句子时间。播放器重新进入时
   读取 SQLite 观看进度，时间链接只在首次进入时覆盖进度；暂停和离页会补存当前位置。视频获得焦点时 Space
-  由视频元素单独拦截并阻止冒泡，修复原生控制与全局快捷键各执行一次造成的“暂停后立即继续”。
+  由视频元素在捕获阶段提前拦截并阻止冒泡，避免原生控制与全局快捷键各执行一次造成“暂停后立即继续”。
 - 2026-08-08：播放器把常用与次要控制分层，字幕偏移保留为 `[` / `]` 键盘专用；同目录 24 集真实浏览器验证
   可横向选集，上一/下一话切换后 URL、视频源、当前集计数同步更新。空数据库实例验证首用三步引导和设置页
   “本地播放不需要 API key”说明；未知路由显示带返回入口的 404。加载、失败、重试与单词删除撤销采用统一反馈。
 - 2026-08-08：CORS 从反射任意 Origin 改为本地 Web 来源的精确 allowlist，可用 `CORS_ORIGINS` 扩展；Anki
   播放回链修正为真实 `/play/:id`，并可由 `APP_BASE_URL` 覆盖。生产及开发依赖审计均为 0 个漏洞。
+- 2026-08-08：按 Claude Design 稿《tanku Anime 视觉改版》完成全站视觉换肤（纯视觉层，reducer/API/路由未动）。
+  真实浏览器验证：发现页导航胶囊选中态带缺口、hero 用 AniList 真图 + 墨色渐变、编辑推荐三卡为米白/温白/墨三种
+  表面（前两张带底边缺口）、季度网格 20 部真实作品带评分徽章与双横眼装饰、marquee 动画运转；播放页对
+  Mushoku Tensei 第 1 话实测暂停→透明底高对比字幕→解析面板（米白面）显示「現在のセリフ · 1:50」+ 7 个分词
+  chip + 双横眼 AI 标签；ライブラリ显示 `LOCAL · 4 FOLDERS · 38 FILES` 统计与短横指示器；単語帳两列布局
+  与 `SAVED · N WORDS · N SENTENCES` 统计正常。全程浏览器控制台无 warning/error；server 136 + web 36 测试、
+  两端 tsc noEmit 与 web production build 全部通过。验证期间自动播放使该集进度短暂前进，已恢复为原 113 秒。
 
 ## 4. 关键决策记录（为什么这么做）
 
@@ -209,6 +217,14 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   会实际创建 SQLite。若用户机器仍回退到本地编译，先报告错误，不自动安装 Visual Studio Build Tools。
 - **npm 安装**：用户 ~/.npmrc 走 Clash 代理(127.0.0.1:7890)，代理没开时一切 install 失败；
   用 `npm install --userconfig /dev/null --registry https://registry.npmjs.org ...` 绕过，别改全局配置。
+- **视觉系统从标识推导，只用墨黑与米白**（2026-08-08，来源为 Claude Design 稿《tanku Anime 视觉改版》）：
+  原深蓝底 + 荧光绿/暖橙/紫高亮全部废弃，层级只靠明度（ink 900–200 与 bone 050–400 两个色阶）。四个构件
+  全部来自 logo：方块（卡片一律 10px 圆角）、底边缺口（当前导航/标签/剧集的选中态）、双横眼（AI 标签、
+  封面装饰）、短横（当前行与保存成功指示）。播放器字幕为透明底、正常字重的白字轻阴影，不使用构件背景，避免遮挡画面；
+  错误状态不引入红色，用米白反转底表达最强对比；
+  成功状态用短横指示器。字体为 Space Grotesk（仅品牌字标）/ Noto Sans JP（正文）/ JetBrains Mono（标签与
+  快捷键），经 Google Fonts CDN 引入并带系统字体回退，离线时自动降级为 Hiragino Sans 等系统字体。
+  解析面板整面反转为米白，是页面上唯一的大面积亮色，用来强调「学习内容」优先级。
 
 ## 5. 已知小问题 / 待打磨
 
@@ -228,6 +244,8 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 - 智能排序只能从 Nyaa 标题和元数据里选“当前最好”；若没有单文件、整季且浏览器兼容的候选，第一项仍可能
   带转换警告或只能是分 Part 发布，页面必须保留警告，不能承诺绝对自动正确。
 - 部分发布标题不写 H.264/H.265，页面会显示未知编码；下载后仍以现有 ffprobe/scanner 判断为准
+- Web 字体走 Google Fonts CDN，离线或被墙时回退系统字体（品牌字标与 mono 标签观感略变，功能不受影响）；
+  是否本地内嵌字体文件待真实使用后决定，注意 Noto Sans JP 体积较大
 - Jimaku 的 `jimaku_mapping` 仍是一部本地 series 对应一个条目；像《无职転生》第一季这种在 Jimaku
   拆成前后半和特典三个条目的作品，当前需按集分段下载。现有 24 集已处理完成，但通用的分段映射 UI 尚未做。
 - 部分 Jimaku SRT 是滚动式闭路字幕，会把同一句拆成相邻或短暂重叠的 cue；《无职転生》第 1 集
