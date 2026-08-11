@@ -70,6 +70,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | H.265/HEVC Main 10 只在已验证的 macOS 浏览器路径 remux；Windows/Linux 保守标记「要トランスコード」，H.264 10-bit 等不兼容源同样不放行 | media/ffmpeg.ts decidePlayability |
 | 学习模式：首次默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显且开关在浏览器本地保持；[ ] 偏移±100ms；右侧解析独立保持已选句，重听时不消失；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
 | 桌面播放器布局：视频/解析面板之间可拖动调宽并记住宽度；自定义全屏会将视频、状态和字幕层一起全屏 | PlayerPage + playerLayout.ts |
+| 播放控制条：不用原生 controls（各浏览器行为不一、会自动隐藏且此环境不渲染），改自绘常显进度条+当前/总时长+播放暂停+可拖动 seek；全屏按钮与进度条默认隐藏，hover 到画面或暂停时才出现；去掉了会挡画面的模式徽章 | PlayerPage + playerControls.ts |
 | 播放器同目录选集：列出当前物理目录中的可播放视频，提供上一话、下一话与直接选集；切集时重置字幕、学习句和讲解状态 | PlayerPage + episodeNavigation.ts |
 | 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，打开即定位当前句，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
@@ -246,7 +247,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 ## 5. 已知小问题 / 待打磨
 
 - jimaku_mapping.entry_name 存的是 ID 字符串而非作品名（仅备注字段，不影响功能，顺手可修）
-- 视频自然播完时面板行为尚未单独定义（Space 双触发已于 2026-08-08 修复）
+- 视频自然播完时面板行为尚未单独定义（Space 双触发已于 2026-08-08 修复；原生 controls 已于 2026-08-11 换成自绘控制条）
 - 「続き」需 positionSec>30 才显示；播放页尚无「从头开始/继续」选择
 - H.264 10-bit 等当前浏览器仍不兼容的源没有后台转码兜底，只提示换源
 - Windows 实机尚未完成“FFmpeg 探测/重封装 → 浏览器播放真实媒体 → 外部字幕”全链路；当前 CI 覆盖依赖、

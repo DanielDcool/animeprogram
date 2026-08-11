@@ -32,6 +32,7 @@ import {
 } from '../player/playerLayout';
 import { linkedPlaybackPosition, playbackStartPosition } from '../player/playbackPosition';
 import { episodeNavigation } from '../player/episodeNavigation';
+import { formatClock, seekTimeFromFraction, progressFraction } from '../player/playerControls';
 
 const PLAYER_WIDTH_KEY = 'player-main-width';
 const SUBTITLE_ALWAYS_ON_KEY = 'player-subtitles-always-on';
@@ -55,6 +56,8 @@ export default function PlayerPage() {
     alwaysOn: storedAlwaysOnPreference(localStorage.getItem(SUBTITLE_ALWAYS_ON_KEY)),
   }));
   const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const [selectedAnalysisCueIdx, setSelectedAnalysisCueIdx] = useState<number | null>(null);
   const [panelMode, setPanelMode] = useState<'analysis' | 'transcript'>('analysis');
   const [explainRequest, setExplainRequest] = useState({ id: 0, sentence: null as string | null });
@@ -83,6 +86,8 @@ export default function PlayerPage() {
     setSubError(false);
     setLearn((state) => ({ ...initialState, alwaysOn: state.alwaysOn }));
     setTime(0);
+    setDuration(0);
+    setIsPaused(false);
     setSelectedAnalysisCueIdx(null);
     setPanelMode('analysis');
     setExplainRequest({ id: 0, sentence: null });
@@ -293,25 +298,12 @@ export default function PlayerPage() {
       style={{ '--player-main-width': `${playerWidth}%` } as CSSProperties}
     >
       <div className="player-main">
-        <div ref={videoWrapRef} className="video-wrap">
-          <span className="mode-badge">
-            {learn.alwaysOn ? '字幕常時ON' : learn.revealed ? '学習モード・一時停止で字幕表示中' : '学習モード・字幕OFF'}
-          </span>
-          <button
-            type="button"
-            className="fullscreen-button"
-            onClick={toggleFullscreen}
-            aria-label={fullscreen ? '全画面を終了' : '字幕付きで全画面再生'}
-            title={fullscreen ? '全画面を終了' : '字幕付きで全画面再生'}
-          >
-            {fullscreen ? '全画面を終了' : '⛶ 全画面'}
-          </button>
+        <div ref={videoWrapRef} className={`video-wrap${isPaused ? ' is-paused' : ''}`}>
           <video
             ref={videoRef}
             src={joinApiBase(`/api/media/${mediaId}/stream`)}
-            controls
-            controlsList="nofullscreen"
             autoPlay
+            onClick={togglePause}
             onKeyDownCapture={(e) => {
               if (e.code !== 'Space') return;
               e.preventDefault();
@@ -323,14 +315,56 @@ export default function PlayerPage() {
               e.preventDefault();
               e.stopPropagation();
             }}
+            onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+            onDurationChange={(e) => setDuration(e.currentTarget.duration)}
             onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
-            onPlay={() => dispatch({ type: 'EXTERNAL_PLAY' })}
+            onPlay={() => { setIsPaused(false); dispatch({ type: 'EXTERNAL_PLAY' }); }}
             onPause={(e) => {
+              setIsPaused(true);
               saveVideoPosition(e.currentTarget);
               dispatch({ type: 'EXTERNAL_PAUSE' });
             }}
           />
           <SubtitleOverlay text={cue?.text ?? null} visible={subtitleVisible} />
+          <div className="video-overlay">
+            <button
+              type="button"
+              className="fullscreen-button"
+              onClick={toggleFullscreen}
+              aria-label={fullscreen ? '全画面を終了' : '字幕付きで全画面再生'}
+              title={fullscreen ? '全画面を終了' : '字幕付きで全画面再生'}
+            >
+              {fullscreen ? '全画面を終了' : '⛶ 全画面'}
+            </button>
+            <div className="video-scrubber">
+              <button
+                type="button"
+                className="scrub-play"
+                onClick={togglePause}
+                aria-label={isPaused ? '再生' : '一時停止'}
+              >
+                {isPaused ? '▶' : '❚❚'}
+              </button>
+              <span className="scrub-time">{formatClock(time)}</span>
+              <input
+                className="scrub-range"
+                type="range"
+                min={0}
+                max={1000}
+                step={1}
+                value={Math.round(progressFraction(time, duration) * 1000)}
+                aria-label="再生位置"
+                onChange={(e) => {
+                  const v = videoRef.current;
+                  if (!v) return;
+                  const next = seekTimeFromFraction(Number(e.currentTarget.value) / 1000, duration);
+                  v.currentTime = next;
+                  setTime(next);
+                }}
+              />
+              <span className="scrub-time scrub-duration">{formatClock(duration)}</span>
+            </div>
+          </div>
         </div>
         <div className="player-controls">
           <div className="hotkeys primary-controls">
