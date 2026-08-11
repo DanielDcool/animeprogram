@@ -6,7 +6,7 @@ tanku Anime has not made a tagged release yet. Security fixes are made on the cu
 
 ## Reporting a vulnerability
 
-Please do **not** open a public issue for a suspected vulnerability. Use GitHub's private [security advisory form](https://github.com/DanielDcool/animeprogram/security/advisories/new) instead. Include:
+Please do **not** open a public issue for a suspected vulnerability. Use GitHub's private [security advisory form](https://github.com/DanielDcool/tankuanime/security/advisories/new) instead. Include:
 
 - the affected commit or version;
 - a minimal, non-destructive reproduction;

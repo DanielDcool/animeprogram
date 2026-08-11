@@ -182,7 +182,12 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 ## 4. 关键决策记录（为什么这么做）
 
 - **本地 Web 应用而非 Electron/mpv 插件**：开发快、UI 灵活、用户可远程访问；用户确认过。
-- **品牌名为 `tanku Anime`**：导航、浏览器标题、当前 README 与协作政策统一使用该展示名；仓库名、npm workspace 名和历史设计文档继续保留 `animeprogram` / 原名称，以免破坏既有 clone 地址、安装命令和历史事实。
+- **品牌名为 `tanku Anime`**：导航、浏览器标题、README 与协作政策统一使用该展示名。
+  **2026-08-11 仓库改名为 `tankuanime`**（原 `animeprogram`）：改名时 0 star / 0 fork，破坏面最小，
+  且 GitHub 对旧地址保留 301 跳转，既有 clone 仍可用。三语 README、`SECURITY.md`、`CODE_OF_CONDUCT.md`、
+  `docs/AI-SETUP.md` 中的 URL 与 `cd` 目录已同步。**本地目录 `~/study/animeprogram`、根 `package.json`
+  的 `name` 与历史设计文档保持原名**——前两者只影响本机与内部标识，改动会打断现有路径与工具配置，
+  收益为零；历史文档记录的是当时事实，不追溯修改。
 - **启动命令必须跨平台且只有一个**：用户始终运行 `npm start`。根脚本用 Node 直接解析并启动 workspace 中的
   tsx 与 Vite CLI，不经过 Bash、`cmd.exe` 或 `.cmd` shim，因此不依赖 `&`、`wait` 或 shell 引号规则。
 - **媒体目录优先级固定**：`MEDIA_DIR` 环境变量 > 设置页保存在 SQLite 的 `media_dir` > 用户主目录中的

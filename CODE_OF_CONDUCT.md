@@ -34,7 +34,7 @@ This Code of Conduct applies within all project spaces and also applies when an 
 
 ## Enforcement
 
-Report unacceptable behavior privately through the repository's [security advisory form](https://github.com/DanielDcool/animeprogram/security/advisories/new). Reports will be handled confidentially and reviewed by the project maintainer.
+Report unacceptable behavior privately through the repository's [security advisory form](https://github.com/DanielDcool/tankuanime/security/advisories/new). Reports will be handled confidentially and reviewed by the project maintainer.
 
 Maintainers will follow these Community Impact Guidelines when determining the consequences of an action:
 

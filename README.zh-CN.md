@@ -25,8 +25,8 @@ tanku Anime 是一个仍在早期阶段、自行部署在本机的 Web 应用。
 macOS：
 
 ```bash
-git clone https://github.com/DanielDcool/animeprogram.git
-cd animeprogram
+git clone https://github.com/DanielDcool/tankuanime.git
+cd tankuanime
 brew install ffmpeg
 npm ci
 npm start
@@ -38,8 +38,8 @@ Windows PowerShell（先安装 [Node.js 22](https://nodejs.org/en/download)，�
 node --version
 ffmpeg -version
 ffprobe -version
-git clone https://github.com/DanielDcool/animeprogram.git
-cd animeprogram
+git clone https://github.com/DanielDcool/tankuanime.git
+cd tankuanime
 npm ci
 npm start
 ```
@@ -148,7 +148,7 @@ npm run build -w web
 
 只需对 AI 编程助手说：
 
-> 请从 https://github.com/DanielDcool/animeprogram 安装并启动 tanku Anime。
+> 请从 https://github.com/DanielDcool/tankuanime 安装并启动 tanku Anime。
 
 阅读 [AGENTS.md](AGENTS.md)、本 README 和 [docs/AI-SETUP.md](docs/AI-SETUP.md) 是 AI 的职责。这些文件已定义安全边界、平台检查、可选组件和验证步骤，用户不必逐条重复。在 Windows 上，AI 必须确认 Node.js 22、两个 FFmpeg 命令、依赖、测试、启动、网页和健康接口全部正常后，才能说安装成功。
 

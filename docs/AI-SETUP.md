@@ -6,7 +6,7 @@ This guide is for a coding agent helping someone install or work on tanku Anime 
 
 Users should not need to clone the repository first or repeat a long setup checklist. This one sentence is enough:
 
-> Install and start tanku Anime from https://github.com/DanielDcool/animeprogram on this computer.
+> Install and start tanku Anime from https://github.com/DanielDcool/tankuanime on this computer.
 
 The agent must read `AGENTS.md`, `README.md`, and this guide before acting. Those files, rather than the user's prompt, define the safety boundaries and verification work. macOS has full manual verification. Windows has a cross-platform start command and automated coverage, but a new Windows installation must still be verified on that computer before it is described as working.
 
@@ -21,7 +21,7 @@ Set up the application without exposing secrets, modifying personal media, addin
 
 ## Setup sequence
 
-1. If the repository is not present, clone `https://github.com/DanielDcool/animeprogram.git`. Then read the root `AGENTS.md` and `README.md` before changing anything.
+1. If the repository is not present, clone `https://github.com/DanielDcool/tankuanime.git`. Then read the root `AGENTS.md` and `README.md` before changing anything.
 2. Inspect the repository status and identify the operating system and CPU architecture.
 3. Verify Node.js and both FFmpeg executables before dependency installation:
 

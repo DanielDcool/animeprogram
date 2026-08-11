@@ -27,8 +27,8 @@ tanku Anime is an early-stage, self-hosted web app. Your media files stay on you
 macOS:
 
 ```bash
-git clone https://github.com/DanielDcool/animeprogram.git
-cd animeprogram
+git clone https://github.com/DanielDcool/tankuanime.git
+cd tankuanime
 brew install ffmpeg
 npm ci
 npm start
@@ -40,8 +40,8 @@ Windows PowerShell (after installing [Node.js 22](https://nodejs.org/en/download
 node --version
 ffmpeg -version
 ffprobe -version
-git clone https://github.com/DanielDcool/animeprogram.git
-cd animeprogram
+git clone https://github.com/DanielDcool/tankuanime.git
+cd tankuanime
 npm ci
 npm start
 ```
@@ -150,7 +150,7 @@ Prefer serving the web client and API from one origin, with a reverse proxy forw
 
 Give an AI coding agent this one sentence:
 
-> Install and start tanku Anime from https://github.com/DanielDcool/animeprogram on this computer.
+> Install and start tanku Anime from https://github.com/DanielDcool/tankuanime on this computer.
 
 The agent is responsible for reading [AGENTS.md](AGENTS.md), this README, and [docs/AI-SETUP.md](docs/AI-SETUP.md). Those files define the safety boundaries, platform checks, optional components, and verification steps, so users do not need to repeat them. On Windows, the agent must verify Node.js 22, both FFmpeg executables, dependencies, tests, startup, the web page, and the health endpoint before saying the installation works.
 
