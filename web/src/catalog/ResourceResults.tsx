@@ -18,24 +18,36 @@ interface ApiFailure extends Error {
   body?: { externalSearchUrl?: string };
 }
 
-export default function ResourceResults({ animeId }: { animeId: number }) {
-  const [category, setCategory] = useState<ResourceCategory>('english');
+export default function ResourceResults({
+  subjectId,
+  defaultCategory = 'english',
+  fetchResources,
+}: {
+  subjectId: number;
+  /** ドラマは raw が既定（日本のテレビ録画が大半で、英語字幕は学習に不要） */
+  defaultCategory?: ResourceCategory;
+  /** 省略時はアニメの取得口。ドラマ詳細ページが自分の取得口を差し込む */
+  fetchResources?: (category: ResourceCategory) => Promise<ResourceSearchResponse>;
+}) {
+  const [category, setCategory] = useState<ResourceCategory>(defaultCategory);
   const [state, setState] = useState<ResourceViewState>('idle');
   const [result, setResult] = useState<ResourceSearchResponse | null>(null);
   const [errorFallback, setErrorFallback] = useState('');
 
   useEffect(() => {
-    setCategory('english');
+    setCategory(defaultCategory);
     setState('idle');
     setResult(null);
     setErrorFallback('');
-  }, [animeId]);
+  }, [subjectId, defaultCategory]);
 
   async function load(nextCategory = category) {
     setState('loading');
     setErrorFallback('');
     try {
-      const response = await api.catalogResources(animeId, nextCategory);
+      const response = fetchResources
+        ? await fetchResources(nextCategory)
+        : await api.catalogResources(subjectId, nextCategory);
       setResult(response);
       setState(response.items.length ? 'ready' : 'empty');
     } catch (error) {

@@ -914,3 +914,36 @@ hr { border: 0; border-top: 1px solid var(--border-soft); margin: 26px 0; }
   .download-actions { flex-basis: auto; }
   .local-learning { padding: 23px 20px; }
 }
+
+/* ---- ドラマ厳選カード ---- */
+.drama-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+.drama-pick-card {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+.drama-pick-card:hover { border-color: var(--border-strong); }
+.drama-pick-body { flex: 1; min-width: 0; }
+.drama-pick-body h3 { margin: 6px 0 2px; font-size: 17px; }
+.drama-pick-body p { margin: 6px 0 0; font-size: 13px; line-height: 1.75; color: var(--text-muted); }
+.drama-pick-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.drama-pick-poster {
+  width: 68px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--stripe-cover);
+}
