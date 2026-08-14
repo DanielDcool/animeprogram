@@ -36,6 +36,17 @@ function fakeResources(record: { options?: ResourceSearchOptions } = {}): Resour
   };
 }
 
+const failingDetail = async (): Promise<CatalogDrama | null> => {
+  throw new DramaUpstreamError('TMDB returned 500');
+};
+
+/** TMDB が完全に落ちている状態。トークンは設定済みという前提 */
+const downClient: DramaCatalogClient = {
+  home: async () => { throw new DramaUpstreamError('TMDB returned 500'); },
+  search: async () => { throw new DramaUpstreamError('TMDB returned 500'); },
+  detail: failingDetail,
+};
+
 async function buildTestApp(client: DramaCatalogClient | null, resources = fakeResources()) {
   const app = Fastify();
   await app.register(dramaRoutes, { getClient: () => client, resources });
@@ -51,7 +62,11 @@ describe('drama routes without a tmdb token', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.tmdbConfigured).toBe(false);
-    expect(body.featured).toHaveLength(DRAMA_PICKS.length);
+    expect(body.featured.map((item: CatalogDrama) => item.id)).toEqual(DRAMA_PICKS.map((pick) => pick.tmdbId));
+    expect(body.featured[0]).toMatchObject({
+      title: DRAMA_PICKS[0].title,
+      recommendation: { badge: DRAMA_PICKS[0].badge, reason: DRAMA_PICKS[0].reason },
+    });
     expect(body.current.items).toEqual([]);
   });
 
@@ -105,7 +120,37 @@ describe('drama routes with a tmdb token', () => {
 
     expect(body.tmdbConfigured).toBe(true);
     expect(body.current.items).toHaveLength(1);
-    expect(body.featured).toHaveLength(DRAMA_PICKS.length);
+    expect(body.featured.map((item: CatalogDrama) => item.id)).toEqual(DRAMA_PICKS.map((pick) => pick.tmdbId));
+  });
+
+  it('falls back to the local pick when tmdb has no record of it', async () => {
+    const app = await buildTestApp(client);
+
+    const response = await app.inject({ method: 'GET', url: `/api/drama/${DRAMA_PICKS[0].tmdbId}` });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      id: DRAMA_PICKS[0].tmdbId,
+      title: DRAMA_PICKS[0].title,
+    });
+  });
+
+  it('falls back to the local pick when tmdb is down', async () => {
+    const app = await buildTestApp({ ...client, detail: failingDetail });
+
+    const response = await app.inject({ method: 'GET', url: `/api/drama/${DRAMA_PICKS[0].tmdbId}` });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ id: DRAMA_PICKS[0].tmdbId });
+  });
+
+  it('502s when tmdb is down and the drama is not a local pick', async () => {
+    const app = await buildTestApp({ ...client, detail: failingDetail });
+
+    const response = await app.inject({ method: 'GET', url: '/api/drama/99999999' });
+
+    expect(response.statusCode).toBe(502);
+    expect(response.json().code).toBe('DRAMA_UNAVAILABLE');
   });
 
   it('rejects a too-short query', async () => {
@@ -145,6 +190,30 @@ describe('drama resource search', () => {
     // ドラマの既定は raw（日本のテレビ録画が主流で、英語字幕は学習に不要）
     expect(response.json().category).toBe('raw');
     expect(response.json().externalSearchUrl).toContain('c=4_4');
+  });
+
+  it('keeps searching a pick while tmdb is down', async () => {
+    const record: { options?: ResourceSearchOptions } = {};
+    const app = await buildTestApp(downClient, fakeResources(record));
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/drama/${DRAMA_PICKS[0].tmdbId}/resources`,
+    });
+
+    // Nyaa も jimaku も TMDB を経由しない。TMDB 障害でダウンロード導線を止めない。
+    expect(response.statusCode).toBe(200);
+    expect(record.options?.kind).toBe('drama');
+    expect(response.json().externalSearchUrl).toContain('c=4_4');
+  });
+
+  it('502s while tmdb is down when the drama is not a pick', async () => {
+    const app = await buildTestApp(downClient);
+
+    const response = await app.inject({ method: 'GET', url: '/api/drama/99999999/resources' });
+
+    expect(response.statusCode).toBe(502);
+    expect(response.json().code).toBe('DRAMA_UNAVAILABLE');
   });
 
   it('rejects an unknown category', async () => {

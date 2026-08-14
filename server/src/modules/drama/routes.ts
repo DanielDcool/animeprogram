@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { DramaUpstreamError, type DramaCatalogClient } from './client.js';
+import { DramaUpstreamError, type CatalogDrama, type DramaCatalogClient } from './client.js';
 import { dramaFeatured } from './editorial.js';
 import {
   ResourceUpstreamError,
@@ -31,6 +31,26 @@ function externalSearchUrl(query: string, category: ResourceCategory): string {
 }
 
 export async function dramaRoutes(app: FastifyInstance, opts: DramaRoutesOpts) {
+  /**
+   * TMDB が落ちていても、厳選リストに載っている作品は詳細も資源検索も止めない。
+   * Nyaa も jimaku も TMDB を経由しないので、TMDB の可用性が
+   * 「このドラマを落として学習できるか」を左右するべきではない。
+   * カタログ側の「AniList 障害は発見ページだけに留め、プレイヤー・単語帳・
+   * ローカル走査は止めない」と同じ原則（docs/DEVELOPMENT.md §4「发现与本地学习分层」）。
+   * 厳選リストに無い作品は代わりが無いので、その場合だけ 502 を投げ直す。
+   */
+  async function resolveDrama(id: number): Promise<CatalogDrama | null> {
+    const client = opts.getClient();
+    const local = dramaFeatured().find((pick) => pick.id === id) ?? null;
+    if (!client) return local;
+    try {
+      return (await client.detail(id)) ?? local;
+    } catch (error) {
+      if (error instanceof DramaUpstreamError && local) return local;
+      throw error;
+    }
+  }
+
   async function run<T>(reply: FastifyReply, operation: () => Promise<T>) {
     try {
       return await operation();
@@ -75,16 +95,9 @@ export async function dramaRoutes(app: FastifyInstance, opts: DramaRoutesOpts) {
     if (!Number.isSafeInteger(id) || id <= 0) {
       return reply.code(400).send({ code: 'INVALID_DRAMA_ID', error: '作品IDが不正です。' });
     }
-    const client = opts.getClient();
-    const local = dramaFeatured().find((pick) => pick.id === id);
-    if (!client) {
-      if (local) return local;
-      return reply.code(404).send({ code: 'DRAMA_NOT_FOUND', error: '作品が見つかりません。' });
-    }
     return run(reply, async () => {
-      const detail = await client.detail(id);
-      if (detail) return detail;
-      if (local) return local;
+      const drama = await resolveDrama(id);
+      if (drama) return drama;
       return reply.code(404).send({ code: 'DRAMA_NOT_FOUND', error: '作品が見つかりません。' });
     });
   });
@@ -109,10 +122,7 @@ export async function dramaRoutes(app: FastifyInstance, opts: DramaRoutesOpts) {
 
     let fallbackUrl = '';
     try {
-      const client = opts.getClient();
-      const detail = client ? await client.detail(id) : null;
-      const local = dramaFeatured().find((pick) => pick.id === id);
-      const source = detail ?? local;
+      const source = await resolveDrama(id);
       if (!source) {
         return reply.code(404).send({ code: 'DRAMA_NOT_FOUND', error: '作品が見つかりません。' });
       }
