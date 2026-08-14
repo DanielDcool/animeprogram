@@ -62,6 +62,7 @@
   /* 反転の島 */
   --invert-surface: var(--bone-100);
   --invert-surface-2: var(--bone-200);
+  --invert-surface-3: var(--bone-300);
   --on-invert: var(--ink-900);
   --on-invert-muted: #5D5849;
   --invert-border: #DCD9D2;
@@ -98,6 +99,7 @@
   /* 反転の島 */
   --invert-surface: var(--ink-900);
   --invert-surface-2: var(--ink-700);
+  --invert-surface-3: var(--ink-600);
   --on-invert: var(--bone-100);
   --on-invert-muted: var(--ink-200);
   --invert-border: var(--ink-600);
@@ -636,7 +638,7 @@ hr { border: 0; border-top: 1px solid var(--border-soft); margin: 26px 0; }
 .editorial-card.surface-bone { background: var(--invert-surface); color: var(--on-invert); }
 .editorial-card.surface-bone .pick-number { color: var(--bone-400); }
 .editorial-card.surface-bone .pick-badge, .editorial-card.surface-bone p { color: var(--on-invert-muted); }
-.editorial-card.surface-warm { background: var(--bone-300); color: var(--on-invert); }
+.editorial-card.surface-warm { background: var(--invert-surface-3); color: var(--on-invert); }
 .editorial-card.surface-warm .pick-number { color: var(--on-invert-muted); }
 .editorial-card.surface-warm .pick-badge, .editorial-card.surface-warm p { color: var(--on-invert-muted); }
 .editorial-card.surface-ink { background: var(--bg); border: 1px solid var(--border); color: var(--text); }
@@ -756,7 +758,7 @@ hr { border: 0; border-top: 1px solid var(--border-soft); margin: 26px 0; }
 .detail-english { color: var(--text-faint); margin: 6px 0 0; font-size: 13px; }
 .detail-tags { margin-top: 20px; }
 .detail-tags span { font-size: 10px; }
-.recommendation-note { margin: 26px 0 0; padding: 17px 20px; border-left: 3px solid var(--bone-200); background: var(--surface); color: var(--text-3); line-height: 1.8; }
+.recommendation-note { margin: 26px 0 0; padding: 17px 20px; border-left: 3px solid var(--border-strong); background: var(--surface); color: var(--text-3); line-height: 1.8; }
 .detail-section { padding-top: 50px; }
 .detail-section h2, .local-learning h2 { margin: 0 0 17px; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
 .detail-description { white-space: pre-line; color: var(--text-3); font-size: 15px; line-height: 1.95; }
