@@ -19,6 +19,8 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
   const [jimakuKeySet, setJimakuKeySet] = useState(false);
   const [jimakuKey, setJimakuKey] = useState('');
+  const [tmdbKeySet, setTmdbKeySet] = useState(false);
+  const [tmdbKey, setTmdbKey] = useState('');
   const [model, setModel] = useState('claude-opus-4-8');
   const [mediaDir, setMediaDir] = useState('');
   const [activeMediaDir, setActiveMediaDir] = useState('');
@@ -40,6 +42,7 @@ export default function SettingsPage() {
       setOpenaiKeySet(s.openai_api_key_set);
       setGeminiKeySet(s.gemini_api_key_set);
       setJimakuKeySet(s.jimaku_api_key_set);
+      setTmdbKeySet(s.tmdb_api_key_set);
       setModel(s.ai_model);
       setMediaDir(s.media_dir);
       setActiveMediaDir(s.media_dir);
@@ -59,6 +62,7 @@ export default function SettingsPage() {
     const payload: Record<string, string> = { ai_provider: provider, ai_model: model };
     if (apiKey) payload[`${provider}_api_key`] = apiKey;
     if (jimakuKey) payload.jimaku_api_key = jimakuKey;
+    if (tmdbKey) payload.tmdb_api_key = tmdbKey;
     if (!mediaDirOverridden) payload.media_dir = mediaDir.trim();
     setSaveError('');
     try {
@@ -71,6 +75,7 @@ export default function SettingsPage() {
       else setAnthropicKeySet(anthropicKeySet || apiKey !== '');
       setApiKey('');
       setJimakuKeySet(jimakuKeySet || jimakuKey !== ''); setJimakuKey('');
+      setTmdbKeySet(tmdbKeySet || tmdbKey !== ''); setTmdbKey('');
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
       setSaveError(err?.body?.error ?? '設定を保存できませんでした');
@@ -132,6 +137,15 @@ export default function SettingsPage() {
         <label>jimaku API キー {jimakuKeySet && '（設定済み）'}<br />
           <input type="password" value={jimakuKey} placeholder={jimakuKeySet ? '変更する場合のみ入力' : 'https://jimaku.cc/profile で取得'} onChange={(e) => setJimakuKey(e.target.value)} style={{ width: 360 }} />
         </label>
+      </p>
+      <p>
+        <label>TMDB API Read Access Token {tmdbKeySet && '（設定済み）'}<br />
+          <input type="password" value={tmdbKey} placeholder={tmdbKeySet ? '変更する場合のみ入力' : 'themoviedb.org の設定 → API から取得'} onChange={(e) => setTmdbKey(e.target.value)} style={{ width: 360 }} />
+        </label>
+      </p>
+      <p className="settings-help">
+        ドラマの今期一覧と検索に使います。未設定でも、厳選リストからの資料検索・字幕取得・学習はそのまま使えます。
+        設定ページの「API キー」ではなく、長い方の「API Read Access Token」をコピーしてください。
       </p>
       <p>
         <label>AI モデル<br />
