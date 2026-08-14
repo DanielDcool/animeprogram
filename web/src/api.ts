@@ -1,7 +1,9 @@
 import type {
   AnkiExportResult,
   CatalogAnime,
+  CatalogDrama,
   CatalogHome,
+  DramaHome,
   Explanation,
   MediaItem,
   ResourceCategory,
@@ -57,6 +59,7 @@ export const api = {
     anthropic_api_key_set: boolean; deepseek_api_key_set: boolean; openai_api_key_set: boolean;
     gemini_api_key_set: boolean;
     jimaku_api_key_set: boolean;
+    tmdb_api_key_set: boolean;
     media_dir: string; default_media_dir: string; media_dir_overridden: boolean;
   }>(r)),
   saveSettings: (s: Record<string, string>) =>
@@ -67,5 +70,12 @@ export const api = {
   catalogDetail: (id: number) => request(`/api/catalog/anime/${id}`).then((r) => j<CatalogAnime>(r)),
   catalogResources: (id: number, category: ResourceCategory) =>
     request(`/api/catalog/anime/${id}/resources?category=${encodeURIComponent(category)}`)
+      .then((r) => j<ResourceSearchResponse>(r)),
+  dramaHome: () => request('/api/drama/home').then((r) => j<DramaHome>(r)),
+  dramaSearch: (query: string) =>
+    request(`/api/drama/search?q=${encodeURIComponent(query)}`).then((r) => j<{ items: CatalogDrama[] }>(r)),
+  dramaDetail: (id: number) => request(`/api/drama/${id}`).then((r) => j<CatalogDrama>(r)),
+  dramaResources: (id: number, category: ResourceCategory) =>
+    request(`/api/drama/${id}/resources?category=${encodeURIComponent(category)}`)
       .then((r) => j<ResourceSearchResponse>(r)),
 };

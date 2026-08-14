@@ -77,6 +77,30 @@ export interface CatalogHome {
   featured: CatalogAnime[];
 }
 
+export interface CatalogDrama {
+  id: number;
+  title: string;
+  titleEnglish: string | null;
+  titleNative: string | null;
+  coverImage: string | null;
+  bannerImage: string | null;
+  description: string;
+  score: number | null;
+  episodes: number | null;
+  status: string;
+  startDate: string | null;
+  network: string | null;
+  links: CatalogLink[];
+  recommendation?: { badge: string; reason: string };
+}
+export interface DramaSeason extends SeasonRef { items: CatalogDrama[] }
+export interface DramaHome {
+  current: DramaSeason;
+  previous: DramaSeason;
+  featured: CatalogDrama[];
+  tmdbConfigured: boolean;
+}
+
 export type ResourceCategory = 'english' | 'raw' | 'all';
 export interface ResourceResult {
   id: string;
