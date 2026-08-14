@@ -47,3 +47,19 @@ describe('drama editorial picks', () => {
     expect(dramaEditorialNote(-1)).toBeUndefined();
   });
 });
+
+describe('drama picks searchability', () => {
+  it('carries the romaji spelling into the catalog shape, since Nyaa live action indexes romaji far better than the japanese title', () => {
+    const withRomaji = DRAMA_PICKS.filter((pick) => pick.titleRomaji != null);
+    // 8 本中 silent 以外はローマ字表記が原題と異なる
+    expect(withRomaji.length).toBeGreaterThanOrEqual(DRAMA_PICKS.length - 1);
+
+    const featured = dramaFeatured();
+    for (const pick of DRAMA_PICKS) {
+      const entry = featured.find((item) => item.id === pick.tmdbId);
+      expect(entry?.titleEnglish).toBe(pick.titleRomaji);
+      // 検索語は原題とローマ字の 2 系統になる
+      expect(entry?.titleNative).toBe(pick.title);
+    }
+  });
+});

@@ -8,6 +8,15 @@ export interface DramaEditorialNote {
 export interface DramaPick extends DramaEditorialNote {
   tmdbId: number;
   title: string;
+  /**
+   * リリース側で使われるローマ字表記。Nyaa の実写カテゴリでは日本語原題より
+   * ローマ字の方が圧倒的に当たる（2026-08-15 実測: アンナチュラル 0 件に対し
+   * Unnatural 20 件、きのう何食べた 0 件に対し What Did You Eat Yesterday 4 件）。
+   * 公式英題ではなく「原題のローマ字転写」が当たる点に注意
+   * （We Married as a Job 0 件 / Nigeru wa Haji da ga Yaku ni Tatsu 29 件）。
+   * 原題と同じ綴りなら null。
+   */
+  titleRomaji: string | null;
   /** TMDB の CDN を直接参照する。画像ファイルはリポジトリに置かない（版権素材のため） */
   posterUrl: string | null;
   firstAirDate: string | null;
@@ -20,6 +29,7 @@ export const DRAMA_PICKS: DramaPick[] = [
   {
     tmdbId: 67504,
     title: '重版出来!',
+    titleRomaji: 'Juhan Shuttai',
     posterUrl: null,
     firstAirDate: '2016-04-12',
     badge: '仕事の日本語',
@@ -28,6 +38,7 @@ export const DRAMA_PICKS: DramaPick[] = [
   {
     tmdbId: 210444,
     title: 'silent',
+    titleRomaji: null,
     posterUrl: null,
     firstAirDate: '2022-10-06',
     badge: 'まず一本目',
@@ -36,6 +47,7 @@ export const DRAMA_PICKS: DramaPick[] = [
   {
     tmdbId: 75701,
     title: 'アンナチュラル',
+    titleRomaji: 'Unnatural',
     posterUrl: null,
     firstAirDate: '2018-01-12',
     badge: '挑戦する一本',
@@ -44,6 +56,7 @@ export const DRAMA_PICKS: DramaPick[] = [
   {
     tmdbId: 68293,
     title: '逃げるは恥だが役に立つ',
+    titleRomaji: 'Nigeru wa Haji da ga Yaku ni Tatsu',
     posterUrl: null,
     firstAirDate: '2016-10-11',
     badge: '暮らしと仕事',
@@ -52,6 +65,7 @@ export const DRAMA_PICKS: DramaPick[] = [
   {
     tmdbId: 69857,
     title: 'カルテット',
+    titleRomaji: 'Quartet',
     posterUrl: null,
     firstAirDate: '2017-01-17',
     badge: '会話劇の名作',
@@ -60,6 +74,7 @@ export const DRAMA_PICKS: DramaPick[] = [
   {
     tmdbId: 55925,
     title: '半沢直樹',
+    titleRomaji: 'Hanzawa Naoki',
     posterUrl: null,
     firstAirDate: '2013-07-07',
     badge: '硬い敬語',
@@ -68,6 +83,7 @@ export const DRAMA_PICKS: DramaPick[] = [
   {
     tmdbId: 89613,
     title: 'きのう何食べた？',
+    titleRomaji: 'What Did You Eat Yesterday',
     posterUrl: null,
     firstAirDate: '2019-04-06',
     badge: '生活の語彙',
@@ -76,6 +92,7 @@ export const DRAMA_PICKS: DramaPick[] = [
   {
     tmdbId: 88646,
     title: 'わたし、定時で帰ります。',
+    titleRomaji: 'Watashi Teiji de Kaerimasu',
     posterUrl: null,
     firstAirDate: '2019-04-16',
     badge: '働き方',
@@ -95,7 +112,9 @@ export function dramaFeatured(): CatalogDrama[] {
   return DRAMA_PICKS.map((pick) => ({
     id: pick.tmdbId,
     title: pick.title,
-    titleEnglish: null,
+    // リソース検索は titleNative と titleEnglish の両方を検索語にするので、
+    // ローマ字はここに載せる（Nyaa の実写では原題より当たる）
+    titleEnglish: pick.titleRomaji,
     titleNative: pick.title,
     coverImage: pick.posterUrl,
     bannerImage: null,
