@@ -172,6 +172,45 @@ a:hover { color: var(--link-hover); }
   width: 20px; height: 5px; border-radius: 3px 3px 0 0; background: var(--bg);
 }
 
+/* ---- モード切替（アニメ / ドラマ） ---- */
+.mode-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+.mode-switch button {
+  position: relative;
+  padding: 5px 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow: hidden;
+}
+.mode-switch button:hover:not(.active) { background: transparent; color: var(--text); }
+.mode-switch button.active {
+  background: var(--invert-surface);
+  color: var(--on-invert);
+}
+/* 選択状態の底辺の缺口（標識由来の構件 02） */
+.mode-switch button.active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 4px;
+  border-radius: 3px 3px 0 0;
+  background: var(--bg);
+}
+
 /* ---- 基本フォーム ---- */
 button {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
