@@ -14,6 +14,8 @@ import { createAniListCatalog } from './modules/catalog/client.js';
 import { catalogRoutes } from './modules/catalog/routes.js';
 import { createNyaaResourceProvider } from './modules/resource/nyaa.js';
 import { resourceRoutes } from './modules/resource/routes.js';
+import { createTmdbDramaCatalog, type DramaCatalogClient } from './modules/drama/client.js';
+import { dramaRoutes } from './modules/drama/routes.js';
 import { createSubtitleSyncCoordinator } from './modules/jimaku/sync.js';
 import { createMediaDirectoryWatcher } from './modules/media/watcher.js';
 
@@ -72,7 +74,20 @@ export async function buildApp(opts: {
   await app.register(vocabRoutes, { db, appBaseUrl: opts.appBaseUrl ?? config.appBaseUrl });
   const catalog = createAniListCatalog();
   await app.register(catalogRoutes, { client: catalog });
-  await app.register(resourceRoutes, { catalog, resources: createNyaaResourceProvider() });
+  const resources = createNyaaResourceProvider();
+  await app.register(resourceRoutes, { catalog, resources });
+  // トークンは設定画面で後から保存されうるので、リクエストごとに読み直して
+  // 変わったときだけクライアントを作り直す（再起動不要にするため）
+  let dramaCatalog: { token: string; client: DramaCatalogClient } | null = null;
+  const getDramaClient = () => {
+    const token = getSetting(db, 'tmdb_api_key');
+    if (!token) return null;
+    if (dramaCatalog?.token !== token) {
+      dramaCatalog = { token, client: createTmdbDramaCatalog(token) };
+    }
+    return dramaCatalog.client;
+  };
+  await app.register(dramaRoutes, { getClient: getDramaClient, resources });
   if (subtitleSync && mediaWatcher) {
     app.addHook('onReady', async () => {
       await subtitleSync.reconcile();
