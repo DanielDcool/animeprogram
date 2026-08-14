@@ -5,6 +5,8 @@ import {
 } from '../catalog/client.js';
 import {
   ResourceUpstreamError,
+  nyaaCategoryId,
+  type ContentKind,
   type ResourceCategory,
   type ResourceProvider,
 } from './provider.js';
@@ -15,12 +17,6 @@ interface Opts {
   resources: ResourceProvider;
 }
 
-const CATEGORY_IDS: Record<ResourceCategory, string> = {
-  english: '1_2',
-  raw: '1_4',
-  all: '1_0',
-};
-
 function uniqueTitles(values: Array<string | null>): string[] {
   return [...new Map(values
     .map((value) => value?.trim())
@@ -28,9 +24,9 @@ function uniqueTitles(values: Array<string | null>): string[] {
     .map((value) => [value.toLocaleLowerCase(), value])).values()];
 }
 
-function externalSearchUrl(query: string, category: ResourceCategory): string {
+function externalSearchUrl(query: string, kind: ContentKind, category: ResourceCategory): string {
   const url = new URL('https://nyaa.si/');
-  url.search = new URLSearchParams({ f: '0', c: CATEGORY_IDS[category], q: query }).toString();
+  url.search = new URLSearchParams({ f: '0', c: nyaaCategoryId(kind, category), q: query }).toString();
   return url.toString();
 }
 
@@ -65,12 +61,12 @@ export async function resourceRoutes(app: FastifyInstance, opts: Opts) {
       ]);
       const season = inferSeasonNumber(titles);
       const queries = buildSeasonSearchQueries(titles, season);
-      fallbackUrl = externalSearchUrl(queries[0] ?? '', category);
-      const result = await opts.resources.search(queries, category, { season });
+      fallbackUrl = externalSearchUrl(queries[0] ?? '', 'anime', category);
+      const result = await opts.resources.search(queries, category, { season, kind: 'anime' });
       return {
         ...result,
         category,
-        externalSearchUrl: externalSearchUrl(result.query || queries[0] || '', category),
+        externalSearchUrl: externalSearchUrl(result.query || queries[0] || '', 'anime', category),
       };
     } catch (error) {
       if (error instanceof CatalogUpstreamError) {

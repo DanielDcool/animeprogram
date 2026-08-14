@@ -3,7 +3,7 @@ import {
   createNyaaResourceProvider,
   parseNyaaRss,
 } from '../src/modules/resource/nyaa.js';
-import { ResourceUpstreamError } from '../src/modules/resource/provider.js';
+import { ResourceUpstreamError, nyaaCategoryId } from '../src/modules/resource/provider.js';
 import {
   buildSeasonSearchQueries,
   inferSeasonNumber,
@@ -283,5 +283,25 @@ describe('Nyaa RSS resource provider', () => {
 
     await expect(unavailable.search(['Test Anime'], 'raw')).rejects.toBeInstanceOf(ResourceUpstreamError);
     await expect(malformed.search(['Test Anime'], 'all')).rejects.toBeInstanceOf(ResourceUpstreamError);
+  });
+});
+
+describe('nyaaCategoryId', () => {
+  it('maps anime categories', () => {
+    expect(nyaaCategoryId('anime', 'all')).toBe('1_0');
+    expect(nyaaCategoryId('anime', 'english')).toBe('1_2');
+    expect(nyaaCategoryId('anime', 'raw')).toBe('1_4');
+  });
+
+  it('maps live action categories, which are NOT numbered in parallel with anime', () => {
+    expect(nyaaCategoryId('drama', 'all')).toBe('4_0');
+    // 4_1 = English-translated（アニメの 1_2 に相当）。1→4 の置換では 4_2 になり誤爆する
+    expect(nyaaCategoryId('drama', 'english')).toBe('4_1');
+    expect(nyaaCategoryId('drama', 'raw')).toBe('4_4');
+  });
+
+  it('never returns the idol / promotional video subcategory', () => {
+    const all = (['all', 'english', 'raw'] as const).map((c) => nyaaCategoryId('drama', c));
+    expect(all).not.toContain('4_3');
   });
 });

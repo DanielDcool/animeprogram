@@ -78,7 +78,7 @@ describe('resource routes', () => {
     expect(resources.search).toHaveBeenCalledWith(
       ['テストアニメ S01', 'Test Anime S01', 'テストアニメ', 'Test Anime'],
       'english',
-      { season: 1 },
+      { season: 1, kind: 'anime' },
     );
     expect(response.json()).toMatchObject({
       items: [{ id: resource.id }],
@@ -101,13 +101,13 @@ describe('resource routes', () => {
       1,
       ['テストアニメ S01', 'Test Anime S01', 'テストアニメ', 'Test Anime'],
       'raw',
-      { season: 1 },
+      { season: 1, kind: 'anime' },
     );
     expect(resources.search).toHaveBeenNthCalledWith(
       2,
       ['テストアニメ S01', 'Test Anime S01', 'テストアニメ', 'Test Anime'],
       'all',
-      { season: 1 },
+      { season: 1, kind: 'anime' },
     );
   });
 
@@ -135,7 +135,7 @@ describe('resource routes', () => {
         'Test Anime Season 2',
       ],
       'english',
-      { season: 2 },
+      { season: 2, kind: 'anime' },
     );
   });
 
