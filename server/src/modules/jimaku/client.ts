@@ -34,8 +34,23 @@ export function createJimakuClient(apiKey: string, fetchFn: typeof fetch = fetch
   }
 
   return {
-    search: (query) =>
-      getJson<JimakuEntry[]>(`${BASE}/entries/search?anime=true&query=${encodeURIComponent(query)}`),
+    // アニメと実写（ドラマ）の両方を引いて統合する。
+    // ローカルのファイル名からどちらの棚にあるかを当てるのは不確実なので、
+    // 「人が一度だけ選ぶ」既存フローに候補をまとめて出す方が確実。
+    // 片方が落ちても、もう片方の候補は返す。
+    search: async (query) => {
+      const url = (anime: boolean) =>
+        `${BASE}/entries/search?anime=${anime}&query=${encodeURIComponent(query)}`;
+      const [animeEntries, dramaEntries] = await Promise.all([
+        getJson<JimakuEntry[]>(url(true)).catch(() => [] as JimakuEntry[]),
+        getJson<JimakuEntry[]>(url(false)).catch(() => [] as JimakuEntry[]),
+      ]);
+      const merged = new Map<number, JimakuEntry>();
+      for (const entry of [...animeEntries, ...dramaEntries]) {
+        if (!merged.has(entry.id)) merged.set(entry.id, entry);
+      }
+      return [...merged.values()];
+    },
     files: (entryId, episode) =>
       getJson<JimakuFile[]>(
         `${BASE}/entries/${entryId}/files${episode != null ? `?episode=${episode}` : ''}`,
