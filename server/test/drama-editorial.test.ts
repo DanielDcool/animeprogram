@@ -101,3 +101,17 @@ describe('drama artwork', () => {
     expect(dramaHero().bannerImage).toMatch(/^https:\/\/image\.tmdb\.org\/t\/p\/w1280\/[\w-]+\.jpg$/);
   });
 });
+
+describe('drama backdrops', () => {
+  it('gives every pick a wide backdrop, so the detail banner is never an empty band', () => {
+    for (const entry of [...dramaFeatured(), dramaHero()]) {
+      expect(entry.bannerImage).toMatch(/^https:\/\/image\.tmdb\.org\/t\/p\/w1280\/[\w-]+\.jpg$/);
+    }
+  });
+
+  it('keeps poster and backdrop distinct, so neither slot reuses the other image', () => {
+    for (const entry of [...dramaFeatured(), dramaHero()]) {
+      expect(entry.coverImage).not.toBe(entry.bannerImage);
+    }
+  });
+});

@@ -31,9 +31,12 @@ export default function DramaDetailPage() {
 
   return (
     <main className="anime-detail">
+      {/* 背景画像が無いときは大きな空帯にせず、戻る導線だけの細い帯に縮める */}
       <section
-        className="detail-banner"
-        style={drama.bannerImage ? { backgroundImage: `linear-gradient(0deg, var(--bg) 0%, rgba(11, 11, 10, .35) 70%), url("${drama.bannerImage}")` } : undefined}
+        className={drama.bannerImage ? 'detail-banner' : 'detail-banner is-bare'}
+        // ドラマは明るい地なので、アニメ側の墨色スクリムを流用すると画が灰色に濁る。
+        // 下は地色でしっかり溶かし、上へ向けて素の画に戻す。
+        style={drama.bannerImage ? { backgroundImage: `linear-gradient(0deg, var(--bg) 0%, rgba(251, 250, 247, .72) 34%, rgba(251, 250, 247, 0) 100%), url("${drama.bannerImage}")` } : undefined}
       >
         <Link className="detail-back" to="/">← ドラマ一覧へ</Link>
       </section>

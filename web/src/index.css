@@ -775,6 +775,14 @@ hr { border: 0; border-top: 1px solid var(--border-soft); margin: 26px 0; }
   background-color: var(--surface); background-image: var(--stripe-cover);
   background-size: cover; background-position: center;
 }
+/* 背景画像が取れなかったとき。地紋だけの大きな空帯は情報が無いので細くする */
+.detail-banner.is-bare {
+  height: auto; min-height: 0; padding-block: 18px;
+  background-image: none; background-color: transparent;
+  border-bottom: 1px solid var(--border-soft);
+}
+.detail-banner.is-bare .detail-back { color: var(--text-muted); background: transparent; }
+.detail-banner.is-bare .detail-back:hover { color: var(--text); }
 .detail-back {
   display: inline-flex; color: var(--on-scrim); padding: 7px 12px; border-radius: var(--radius-pill);
   border: 1px solid var(--border); background: rgba(11, 11, 10, 0.7);
