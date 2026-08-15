@@ -76,7 +76,7 @@ describe('drama catalog is the bundled list', () => {
 });
 
 describe('keyword search goes straight to nyaa', () => {
-  it('uses the raw live-action category and the typed words verbatim', async () => {
+  it('searches all live-action subcategories and uses the typed words verbatim', async () => {
     const calls: Call[] = [];
     const app = await buildTestApp(recordingProvider(calls, 3));
 
@@ -86,8 +86,9 @@ describe('keyword search goes straight to nyaa', () => {
     // 作品名を推測して書き換えない: 入力そのまま 1 本
     expect(calls[0].queries).toEqual(['あの冬']);
     expect(calls[0].options.kind).toBe('drama');
-    expect(res.json().category).toBe('raw');
-    expect(res.json().externalSearchUrl).toContain('c=4_4');
+    // 通しのパックは多言語字幕付きが多く、raw だけに絞ると漏れる
+    expect(res.json().category).toBe('all');
+    expect(res.json().externalSearchUrl).toContain('c=4_0');
   });
 
   it('honours an explicit category', async () => {

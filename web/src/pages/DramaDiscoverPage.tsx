@@ -100,7 +100,7 @@ export default function DramaDiscoverPage() {
             <p>厳選リストに無い作品はここから探せます</p>
           </div>
           <ResourceResults
-            defaultCategory="raw"
+            defaultCategory="all"
             autoLoadOn={submitted}
             fetchResources={(category) => api.dramaSearchResources(submitted, category)}
           />

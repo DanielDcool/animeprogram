@@ -18,10 +18,14 @@ export interface DramaRoutesOpts {
 }
 
 /**
- * ドラマの既定は raw。日本のテレビ録画が大半で、
- * 日本語字幕は jimaku から取るので英語字幕は要らない。
+ * ドラマの既定は「すべて」。
+ * 当初は raw を既定にしていたが、通しのパックは多言語字幕付きで配布されることが多く、
+ * raw（4_4）だと候補から漏れてしまう。実測（2026-08-15）:
+ *   VIVANT   raw → 外伝 2.4 GiB / all → 通し 25.3 GiB
+ *   カルテット raw → 単話 0.5 GiB / all → 全 10 話 + 特典 13.1 GiB
+ * 日本語字幕は jimaku から別途取るので、内蔵字幕の有無で絞る必要はない。
  */
-const DEFAULT_CATEGORY: ResourceCategory = 'raw';
+const DEFAULT_CATEGORY: ResourceCategory = 'all';
 
 function isCategory(value: string): value is ResourceCategory {
   return value === 'english' || value === 'raw' || value === 'all';

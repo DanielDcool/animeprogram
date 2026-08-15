@@ -53,7 +53,7 @@ export default function DramaDetailPage() {
 
           <ResourceResults
             subjectId={drama.id}
-            defaultCategory="raw"
+            defaultCategory="all"
             fetchResources={(category) => api.dramaResources(drama.id, category)}
           />
 
