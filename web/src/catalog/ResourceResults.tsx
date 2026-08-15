@@ -3,6 +3,7 @@ import { api } from '../api';
 import type { ResourceCategory, ResourceSearchResponse } from '../types';
 import {
   compatibilityMessage,
+  resourceErrorHint,
   resourceMetaLabels,
   resourceStateCopy,
   type ResourceViewState,
@@ -15,7 +16,7 @@ const CATEGORIES: Array<{ value: ResourceCategory; label: string }> = [
 ];
 
 interface ApiFailure extends Error {
-  body?: { externalSearchUrl?: string };
+  body?: { externalSearchUrl?: string; reason?: string };
 }
 
 export default function ResourceResults({
@@ -37,12 +38,14 @@ export default function ResourceResults({
   const [state, setState] = useState<ResourceViewState>('idle');
   const [result, setResult] = useState<ResourceSearchResponse | null>(null);
   const [errorFallback, setErrorFallback] = useState('');
+  const [errorReason, setErrorReason] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     setCategory(defaultCategory);
     setState('idle');
     setResult(null);
     setErrorFallback('');
+    setErrorReason(undefined);
   }, [subjectId, defaultCategory]);
 
   useEffect(() => {
@@ -63,6 +66,7 @@ export default function ResourceResults({
     } catch (error) {
       setResult(null);
       setErrorFallback((error as ApiFailure).body?.externalSearchUrl ?? '');
+      setErrorReason((error as ApiFailure).body?.reason);
       setState('error');
     }
   }
@@ -110,6 +114,7 @@ export default function ResourceResults({
       {state !== 'ready' && (
         <div className={`download-state ${state}`}>
           <p>{resourceStateCopy(state)}</p>
+          {state === 'error' && <p className="download-hint">{resourceErrorHint(errorReason)}</p>}
           {(state === 'empty' || state === 'error') && fallbackUrl && (
             <a href={fallbackUrl} target="_blank" rel="noreferrer">Nyaa で検索 ↗</a>
           )}

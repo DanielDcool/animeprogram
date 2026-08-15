@@ -30,7 +30,7 @@
 内容分**アニメ**与**ドラマ（日剧）**两个模式，顶部导航切换，整站视觉随之在墨黑与米白之间反转。
 日剧只覆盖日语作品：现代口语、职场与日常场景，比动画更贴近真实工作日语——这是把它纳入的唯一理由，
 不做通用影视数据库。两个模式共用同一条学习管线（扫描 / remux / 播放器 / 分词 / 词典 / AI 讲解 / 生词本），
-差异只在目录数据源（AniList vs TMDB）、Nyaa 分类和 jimaku 检索范围。
+差异只在目录来源（AniList 实时 vs 随包手写清单）、Nyaa 分类和 jimaku 检索范围。
 
 ## 2. 架构总览
 
@@ -53,8 +53,7 @@ server/src/
                sync.ts(持久状态+去重串行自动取得) routes.ts(candidates/download)
     catalog/   client.ts(AniList GraphQL + normalize + 10分钟缓存)
                editorial.ts(本地学习向推荐理由) routes.ts(/api/catalog/*)
-    drama/     client.ts(TMDB Bearer + discover/search/detail + 10分钟缓存)
-               editorial.ts(手写日剧精选,无token时的首页内容) routes.ts(/api/drama/*)
+    drama/     editorial.ts(手写日剧清单=唯一目录源,含类型定义) routes.ts(/api/drama/*,含关键词直搜)
     resource/  provider.ts(统一资源类型 + ContentKind + Nyaa分类表) nyaa.ts(RSS解析/排序/5分钟缓存)
                routes.ts(/api/catalog/anime/:id/resources)
     vocab/     anki.ts(AnkiConnect客户端+卡片格式/去重) routes.ts(收藏 CRUD + 一键导出)
@@ -66,13 +65,13 @@ web/src/
                          LibraryPage / PlayerPage / VocabPage / SettingsPage
   catalog/               view.ts（季度/状态/评分）resourceView.ts（资源显示纯函数）
                          ResourceResults.tsx（Nyaa 候选与 magnet 交接，取数可注入）
-  drama/                 view.ts（クール标签/放送局/放送年）
+  drama/                 view.ts（放送年ラベル）
   player/                learningMode.ts(纯reducer,核心状态机) AnalysisPanel / TranscriptList / SubtitleOverlay
 ```
 
 SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jimaku_mapping, subtitle_sync_state, vocab`
 （settings 存 `ai_provider` / `anthropic_api_key` / `deepseek_api_key` / `openai_api_key` / `gemini_api_key` /
-`jimaku_api_key` / `tmdb_api_key` / `ai_model` / `media_dir`，凭证值不得进入日志、测试或文档）。
+`jimaku_api_key` / `ai_model` / `media_dir`，凭证值不得进入日志、测试或文档）。
 settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 
 ## 3. 已完成功能
@@ -100,7 +99,7 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 | 视觉系统改版：墨黑+米白单色系统，全部颜色/字体/圆角收敛为 index.css `:root` token；标识推导的四构件（方块 10px 圆角 / 选中态底边缺口 / 双横眼 / 短横指示器）贯穿导航、选集、解析面板；播放器字幕使用透明底高对比文字，避免遮挡画面 | index.css + components/BrandMark + App + 各页面 |
 | 开源安装降摩擦：`npm start` 启动预检（Node 22 硬检查、FFmpeg 分级警告、`TANKU_SKIP_PRECHECK=1` 跳过）；`npm run setup:jmdict` 一键下载/解压/导入词典，失败时给手动兜底指引 | scripts/precheck.mjs + scripts/start.mjs + analyze/jmdict-download.ts + server/scripts/setup-jmdict.ts |
 | アニメ/ドラマ 双模式：顶部导航切换，整站在墨黑（アニメ）与米白（ドラマ）两套主题间反转；标识形状不变只反转配色；播放页在两模式下都保持墨黑 | web/src/mode.ts + App.tsx + index.css `[data-mode]` + BrandMark |
-| 日剧发现：按听力难度分级的手写精选 15 部 + 昼顔横幅（无 TMDB token 也能用，海报走 TMDB CDN 直链），配 token 后加当季/上季クール一览与全量搜索；详情页含日语简介、电视台、JP 区配信入口 | drama/* + DramaDiscoverPage + DramaDetailPage |
+| 日剧发现：按听力难度分级的随包清单 15 部 + 昼顔横幅，零配置可用；清单外的作品用顶部搜索框按关键词直搜 Nyaa | drama/* + DramaDiscoverPage + DramaDetailPage |
 | 日剧资源与字幕：Nyaa Live Action 分类（默认 raw）复用既有排序与 magnet 管线；jimaku 候选同时查动画与真人剧库并合并去重 | resource/provider.ts + drama/routes.ts + jimaku/client.ts |
 
 **已验证基线（截至 2026-08-08）**：

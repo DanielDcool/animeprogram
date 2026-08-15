@@ -129,6 +129,7 @@ describe('keyword search goes straight to nyaa', () => {
     expect(res.statusCode).toBe(502);
     expect(res.json().code).toBe('RESOURCE_UNAVAILABLE');
     expect(res.json().externalSearchUrl).toContain('nyaa.si');
+    expect(res.json().reason).toBe('Nyaa returned 503');
   });
 });
 

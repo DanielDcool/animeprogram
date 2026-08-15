@@ -76,9 +76,16 @@ export async function resourceRoutes(app: FastifyInstance, opts: Opts) {
         });
       }
       if (error instanceof ResourceUpstreamError) {
+        // 端末に理由を残す。国内からの直結不可やプロキシ未設定は、ここを見れば一目で分かる
+        req.log.warn(
+          { reason: error.message },
+          'nyaa.si からダウンロード候補を取得できませんでした。'
+          + 'プロキシが必要な環境では NODE_USE_ENV_PROXY=1 と HTTPS_PROXY を設定して起動してください。',
+        );
         return reply.code(502).send({
           code: 'RESOURCE_UNAVAILABLE',
           error: 'ダウンロード候補を取得できませんでした。Nyaa のサイトで検索してください。',
+          reason: error.message,
           externalSearchUrl: fallbackUrl,
         });
       }

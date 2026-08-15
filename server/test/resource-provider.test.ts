@@ -284,6 +284,22 @@ describe('Nyaa RSS resource provider', () => {
     await expect(unavailable.search(['Test Anime'], 'raw')).rejects.toBeInstanceOf(ResourceUpstreamError);
     await expect(malformed.search(['Test Anime'], 'all')).rejects.toBeInstanceOf(ResourceUpstreamError);
   });
+
+  it('keeps the network error code in the message so blocked or proxied hosts are diagnosable', async () => {
+    // undici の fetch は「fetch failed」しか言わず、実際の原因は cause.code に入る
+    const blocked = createNyaaResourceProvider(
+      vi.fn().mockRejectedValue(Object.assign(new Error('fetch failed'), {
+        cause: Object.assign(new Error('getaddrinfo ENOTFOUND nyaa.si'), { code: 'ENOTFOUND' }),
+      })),
+    );
+    const timedOut = createNyaaResourceProvider(
+      vi.fn().mockRejectedValue(new DOMException('The operation was aborted due to timeout', 'TimeoutError')),
+    );
+
+    await expect(blocked.search(['Test Anime'], 'raw')).rejects.toThrow('fetch failed (ENOTFOUND)');
+    await expect(timedOut.search(['Test Anime'], 'raw'))
+      .rejects.toThrow('The operation was aborted due to timeout');
+  });
 });
 
 describe('nyaaCategoryId', () => {

@@ -86,6 +86,20 @@ function safeDetailUrl(value: string): string | null {
   }
 }
 
+/**
+ * undici の fetch は失敗理由を「fetch failed」としか言わず、実際の原因（ENOTFOUND /
+ * ECONNRESET / ETIMEDOUT など）は cause.code に入る。ブロックされたホストや
+ * プロキシ未設定を端末ログと 502 の reason から判別できるよう、コードを message に残す。
+ */
+function describeFetchError(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined;
+  const cause = (error as Error & { cause?: unknown }).cause;
+  const code = cause && typeof cause === 'object' && 'code' in cause
+    ? String((cause as { code?: unknown }).code ?? '')
+    : '';
+  return code ? `${error.message} (${code})` : error.message;
+}
+
 function buildMagnet(infoHash: string, title: string): string | null {
   if (!/^(?:[a-f\d]{40}|[a-z2-7]{32})$/i.test(infoHash)) return null;
   return `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(title)}`;
@@ -242,7 +256,7 @@ export function createNyaaResourceProvider(
         signal: AbortSignal.timeout(10_000),
       });
     } catch (error) {
-      throw new ResourceUpstreamError(error instanceof Error ? error.message : undefined);
+      throw new ResourceUpstreamError(describeFetchError(error));
     }
     if (!response.ok) throw new ResourceUpstreamError(`Nyaa returned ${response.status}`);
     try {
