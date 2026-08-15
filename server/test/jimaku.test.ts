@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import Fastify from 'fastify';
 import { createDb, setSetting, type Db } from '../src/db.js';
-import { pickBestFile, type JimakuClient, type JimakuFile } from '../src/modules/jimaku/client.js';
+import { createJimakuClient, pickBestFile, type JimakuClient, type JimakuFile } from '../src/modules/jimaku/client.js';
 import { jimakuRoutes } from '../src/modules/jimaku/routes.js';
 import { downloadJimakuSubtitle } from '../src/modules/jimaku/service.js';
 
@@ -258,5 +258,75 @@ describe('POST /api/media/:id/jimaku/download', () => {
     });
     expect(res.statusCode).toBe(404);
     expect(res.json().code).toBe('NO_FILE');
+  });
+});
+
+describe('jimaku entry search across anime and drama', () => {
+  it('queries both libraries and merges by entry id', async () => {
+    const urls: string[] = [];
+    const fetchFn = (async (url: string | URL) => {
+      const href = String(url);
+      urls.push(href);
+      const entries = href.includes('anime=true')
+        ? [{ id: 1, name: 'Anime Entry' }, { id: 9, name: 'Shared Entry' }]
+        : [{ id: 9, name: 'Shared Entry' }, { id: 2, name: 'Drama Entry' }];
+      return new Response(JSON.stringify(entries), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as unknown as typeof fetch;
+
+    const entries = await createJimakuClient('test-key', fetchFn).search('silent');
+
+    expect(urls).toHaveLength(2);
+    expect(urls.some((url) => url.includes('anime=true'))).toBe(true);
+    expect(urls.some((url) => url.includes('anime=false'))).toBe(true);
+    expect(entries.map((entry) => entry.id)).toEqual([1, 9, 2]);
+  });
+
+  it('still returns anime results when the drama library errors', async () => {
+    const fetchFn = (async (url: string | URL) => {
+      if (String(url).includes('anime=false')) return new Response('nope', { status: 500 });
+      return new Response(JSON.stringify([{ id: 1, name: 'Anime Entry' }]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as unknown as typeof fetch;
+
+    await expect(createJimakuClient('test-key', fetchFn).search('frieren'))
+      .resolves.toEqual([{ id: 1, name: 'Anime Entry' }]);
+  });
+});
+
+describe('onSubtitlesResolved (シリーズ自動取得のトリガー)', () => {
+  it('fires after a successful pick+download so siblings can auto-sync', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const id = seedMedia(db);
+    const onSubtitlesResolved = vi.fn();
+    const app = Fastify();
+    app.register(jimakuRoutes, { db, clientFactory: () => fakeClient(), onSubtitlesResolved });
+
+    const res = await app.inject({
+      method: 'POST', url: `/api/media/${id}/jimaku/download`, payload: { entryId: 100 },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(onSubtitlesResolved).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fire when the download fails (no entry / no mapping)', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const id = seedMedia(db);
+    const onSubtitlesResolved = vi.fn();
+    const app = Fastify();
+    app.register(jimakuRoutes, { db, clientFactory: () => fakeClient(), onSubtitlesResolved });
+
+    // entryId 無し & マッピング無し → NO_ENTRY で失敗
+    const res = await app.inject({ method: 'POST', url: `/api/media/${id}/jimaku/download`, payload: {} });
+
+    expect(res.statusCode).toBe(400);
+    expect(onSubtitlesResolved).not.toHaveBeenCalled();
   });
 });

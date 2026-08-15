@@ -7,6 +7,8 @@ import { clearSubtitleSyncState, sanitizeSyncError, setSubtitleSyncState } from 
 interface Opts {
   db: Db;
   clientFactory?: (apiKey: string) => JimakuClient;
+  // 作品を選んで字幕が取れた直後に呼ばれる。同シリーズの残り話数を自動取得させるため。
+  onSubtitlesResolved?: () => void;
 }
 
 interface MediaRow {
@@ -65,6 +67,8 @@ export async function jimakuRoutes(app: FastifyInstance, opts: Opts) {
           clientFactory,
         });
         clearSubtitleSyncState(db, Number(req.params.id));
+        // シリーズのマッピングが決まったので、同シリーズの残り話数を自動取得
+        opts.onSubtitlesResolved?.();
         return { ok: true, file: result.file };
       } catch (error) {
         const err = error instanceof JimakuServiceError

@@ -67,6 +67,7 @@ Set up the application without exposing secrets, modifying personal media, addin
 | Jimaku subtitle matching | The user supplies their own Jimaku API key in Settings and chooses a first mapping. |
 | Different storage locations | The user can save an absolute media path in Settings and restart the app. `MEDIA_DIR` overrides that saved path for the current process. Set `DATA_DIR` only for the current process unless the user authorizes a persistent system change. |
 | Magnet handoff | Requires a magnet-capable desktop downloader registered with the OS. Installation and save-folder changes require confirmation. Point its save folder at the configured media directory only if the user wants automatic pickup. |
+| Proxy for external services | The server process fetches AniList, Nyaa RSS, and Jimaku itself and does not use the OS proxy. If those hosts are only reachable through a proxy, start with `NODE_USE_ENV_PROXY=1` and `HTTPS_PROXY=<proxy url>` (Node 22.21 or later) for the current process; do not change system-wide proxy settings without confirmation. A 502 with `reason: fetch failed (...)` on `/api/catalog/anime/:id/resources` is the usual symptom. |
 
 ## Windows-specific checks
 

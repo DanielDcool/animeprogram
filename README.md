@@ -2,15 +2,18 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
-**A local-first Japanese learning player for anime.** Find a show, watch your own local media with subtitles hidden by default, then pause on the line you missed to analyse it, look up words, get an AI explanation, and save it for review.
+**A local-first Japanese learning player for anime and Japanese TV drama.** Find a show, watch your own local media with subtitles hidden by default, then pause on the line you missed to analyse it, look up words, get an AI explanation, and save it for review.
 
-> 中文：一个本地优先的日语动画学习播放器。先听、再暂停看当前句、分词查词和按需 AI 讲解，最后保存到生词本复习。
+> 中文：一个本地优先的日语学习播放器，覆盖动画与日剧。先听、再暂停看当前句、分词查词和按需 AI 讲解，最后保存到生词本复习。
 
 tanku Anime is an early-stage, self-hosted web app. Your media files stay on your computer; the app does not host, proxy, or download video.
 
 ## What you can do
 
-- Discover the current and previous anime season, search titles, and open official streaming or information links.
+- Discover both anime and Japanese drama: browse the current and previous anime season, open the drama picks that ship with the app, search titles, and open official streaming or information links.
+- Switch between **アニメ** (anime) and **ドラマ** (Japanese TV drama) from the top navigation. The whole site inverts with the mode — anime is ink-black with bone-white text, drama is the other way round — while the player page stays ink-black in both modes, so no large bright surface sits next to the video except the analysis panel.
+- Start with drama without configuring anything: a hand-written pick list of eight Japanese dramas ships with the app, each with a short reason it is useful for learning, such as workplace keigo or everyday conversation.
+- Add an optional TMDB token for more drama browsing: the current and previous cour (クール) listings, full drama search, Japanese-language synopses, the broadcast network, and Japan-region streaming links.
 - Learn from local `.mp4` / `.mkv` files with Japanese `.srt` / `.ass` subtitles. MKV files are remuxed when needed for browser playback.
 - Keep larger libraries readable: media is grouped by its containing folder, and each folder can be collapsed independently.
 - Switch episodes from the player: it lists playable videos in the same folder with previous, next, and direct episode links.
@@ -18,7 +21,7 @@ tanku Anime is an early-stage, self-hosted web app. Your media files stay on you
 - Tokenize Japanese locally with Kuromoji and look up JMdict definitions.
 - Ask Anthropic, DeepSeek, OpenAI, or Google Gemini for a structured explanation only when you want one. Results are cached locally.
 - Save words and sentences, inspect their meaning, cached AI explanation, and timestamped source, then send them to a `tanku Anime` Anki deck with one click. Existing cards are skipped.
-- Optionally connect to Jimaku for subtitle matching, and hand a magnet link to your own local downloader. No downloader RPC, video transfer, or remote media lifecycle is built into the app.
+- Optionally connect to Jimaku for subtitle matching, and hand a magnet link to your own local downloader. Jimaku matching searches both its anime and live-action libraries, so drama subtitles go through the same one-time manual match, and drama resource search uses Nyaa's Live Action category with raw releases as the default. No downloader RPC, video transfer, or remote media lifecycle is built into the app.
 
 ## Quick start
 
@@ -98,6 +101,14 @@ In **設定 / Settings**, choose Anthropic, DeepSeek, OpenAI, or Google Gemini a
 
 OpenAI requires an [OpenAI Platform API key](https://platform.openai.com/api-keys). A ChatGPT or Codex subscription by itself is not an API key.
 
+### Drama listings and search (TMDB)
+
+Drama mode needs no token to be useful: the built-in pick list, resource search, subtitle fetching, playback, and the whole learning loop all work without one. Configure a token only if you also want the current and previous cour (クール) listings, full drama search, Japanese-language synopses, the broadcast network, and Japan-region streaming links.
+
+Create a TMDB account, open the [TMDB API settings page](https://www.themoviedb.org/settings/api), and copy the **API Read Access Token** — the long one. The short "API Key" will not work, because tanku Anime authenticates with a Bearer header. Paste the token into **設定 / Settings**.
+
+Like the other keys, it is stored only in the local SQLite database; do not commit keys or the `server/data/` directory.
+
 ### Subtitles and local media
 
 Put your media and matching Japanese subtitles in the media directory shown in **Settings** (default: the `AnimeLibrary` folder in your home directory). You may organize shows in subfolders; the library groups them by that relative folder. Examples:
@@ -110,6 +121,18 @@ AnimeLibrary/Show/Show - 01.ja.srt
 External Japanese subtitles are preferred; otherwise the app attempts to extract an embedded Japanese subtitle track from MKV. Jimaku matching is optional and requires an API key you obtain from Jimaku.
 
 The magnet button is also optional. It requires a magnet-capable desktop downloader registered with the operating system. On Windows, install or reconfigure that downloader only with the user's confirmation, and point its save folder at the media directory shown in **Settings** if automatic library pickup is wanted. Prefer H.264 8-bit releases for the broadest browser compatibility; Windows HEVC support varies by OS, hardware, extensions, and browser, so tanku Anime conservatively marks H.265 as needing conversion there.
+
+#### Resource search only shows a "Nyaa で検索" link
+
+The candidate list is fetched by the local server process, not by your browser, and Node.js does not use the system proxy. If nyaa.si (or AniList / Jimaku) is only reachable through a proxy on your network, either turn on your proxy tool's TUN / enhanced mode, or start the app with Node's built-in proxy support (Node 22.21 or later; replace the port with your proxy's port):
+
+```bash
+NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7890 npm start
+```
+
+PowerShell: `$env:NODE_USE_ENV_PROXY = "1"; $env:HTTPS_PROXY = "http://127.0.0.1:7890"; npm start`
+
+How to tell the two cases apart: an error card whose detail reads like `fetch failed (ENOTFOUND)` or a timeout means the server could not reach nyaa.si (the terminal running `npm start` logs the same reason). If the page instead says no candidates were found, the connection is fine and that title simply has no releases in the selected category — try 字幕なし or すべて.
 
 ## Learning controls
 
@@ -163,6 +186,7 @@ Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_
 - Bring only media and subtitles you are authorized to use.
 - Your media stays in the configured local media directory; the app does not upload it.
 - The optional resource search only returns public metadata and a magnet handoff for your local downloader. It does not download, host, or proxy video.
+- Drama information comes from [TMDB](https://www.themoviedb.org/). This product uses the TMDB API but is not endorsed or certified by TMDB.
 - API keys, viewing progress, vocabulary, mappings, and AI explanation cache are local application data. Back up or remove the SQLite data directory deliberately.
 - The server listens on `127.0.0.1` by default. Do not expose it to an untrusted network; API keys are currently stored in the local SQLite database in plaintext. See [SECURITY.md](SECURITY.md) for reporting and threat-model details.
 
@@ -172,4 +196,6 @@ tanku Anime is released under the [MIT License](LICENSE).
 
 ## Project status
 
-Early-stage, but used daily by its author. The full learning loop is verified on macOS with real media; Windows has compatibility fixes, cross-platform CI, and a verified clean install and startup, with media playback on physical hardware still unconfirmed. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the roadmap.
+Early-stage, but used daily by its author. The full learning loop is verified on macOS with real media; Windows has compatibility fixes, cross-platform CI, and a verified clean install and startup, with media playback on physical hardware still unconfirmed.
+
+Drama mode is the newest addition. Its no-token paths — the built-in pick list, drama resource search, and Jimaku drama subtitles — are confirmed against the real services, while the TMDB-backed seasonal listings, search, and detail pages have not yet been exercised with a real token. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the roadmap.

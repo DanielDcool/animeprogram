@@ -1029,7 +1029,7 @@ git commit -m "feat(server): 新增 TMDB 日剧目录客户端"
 
 - [ ] **Step 1: 写解析脚本**
 
-创建 `server/scripts/resolve-drama-picks.ts`。它用一次性的 token 把剧名解析成 tmdbId 与海报 URL，并打印可直接粘贴的 TS 条目：
+创建 `server/scripts/resolve-drama-picks.ts`。因为 tmdbId 已逐个核实，脚本**按 id 取详情**（而不是按剧名搜索——搜索可能命中同名剧或特别篇），只负责补 `posterUrl`，并校验标题是否与本地一致：
 
 ```ts
 // 一回だけ実行する補助スクリプト。
@@ -1076,13 +1076,17 @@ for (const title of TITLES) {
 }
 ```
 
-- [ ] **Step 2: 运行脚本取得真实 id 与海报 URL**
+- [ ] **Step 2: （可延后）运行脚本补齐海报 URL**
+
+**本步骤不阻塞后续任务。** Step 5 里的 8 个 `tmdbId` 已于 2026-08-14 在 TMDB 公开页逐个核实，不是推测值；`posterUrl` 允许为 `null`，此时封面降级为 `--stripe-cover` 底纹，功能不受影响。
+
+等用户配好 token 后再运行，用输出里的 `posterUrl` 回填 `editorial.ts`：
 
 ```bash
 TMDB_TOKEN=<token> npx tsx scripts/resolve-drama-picks.ts
 ```
 
-在 `server/` 目录下运行。Expected: 输出 8 段 TS 对象字面量，每段带真实的 `tmdbId`、`posterUrl`（`https://image.tmdb.org/t/p/w500/...`）与 `firstAirDate`。若某条输出 `// 見つかりません`，把该行剧名换成 TMDB 上的正式表记后重跑。
+在 `server/` 目录下运行。Expected: 输出 8 段 TS 对象字面量，带 `posterUrl`（`https://image.tmdb.org/t/p/w500/...`）。**回填时只取 `posterUrl`**——`tmdbId` 以 Step 5 中已核实的值为准，若脚本搜索命中了不同的作品（同名剧、特别篇），以已核实的 id 优先。
 
 - [ ] **Step 3: 写失败的测试**
 
@@ -1169,10 +1173,11 @@ export interface DramaPick extends DramaEditorialNote {
 }
 
 // 日本語学習の切り口で選んだ手書きリスト。TMDB のランキングの写しではない。
-// tmdbId / posterUrl / firstAirDate は scripts/resolve-drama-picks.ts の出力で置き換える。
+// tmdbId は TMDB の公開ページで 1 件ずつ確認済み（2026-08-14）。推測値ではない。
+// posterUrl は scripts/resolve-drama-picks.ts で後から埋める（null のままでも動く）。
 export const DRAMA_PICKS: DramaPick[] = [
   {
-    tmdbId: 65133,
+    tmdbId: 67504,
     title: '重版出来!',
     posterUrl: null,
     firstAirDate: '2016-04-12',
@@ -1180,7 +1185,7 @@ export const DRAMA_PICKS: DramaPick[] = [
     reason: '出版社が舞台。敬語、報連相、会議での言い回しが自然な文脈で何度も出てくる。',
   },
   {
-    tmdbId: 209229,
+    tmdbId: 210444,
     title: 'silent',
     posterUrl: null,
     firstAirDate: '2022-10-06',
@@ -1188,7 +1193,7 @@ export const DRAMA_PICKS: DramaPick[] = [
     reason: '現代の日常会話が中心で話す速度もゆっくりめ。短い自然な表現を拾いやすい。',
   },
   {
-    tmdbId: 76669,
+    tmdbId: 75701,
     title: 'アンナチュラル',
     posterUrl: null,
     firstAirDate: '2018-01-12',
@@ -1196,7 +1201,7 @@ export const DRAMA_PICKS: DramaPick[] = [
     reason: '法医学の専門語彙とテンポの速い会話。N1 の先へ語彙を伸ばしたいときに。',
   },
   {
-    tmdbId: 67133,
+    tmdbId: 68293,
     title: '逃げるは恥だが役に立つ',
     posterUrl: null,
     firstAirDate: '2016-10-11',
@@ -1204,7 +1209,7 @@ export const DRAMA_PICKS: DramaPick[] = [
     reason: '家事と労働の話が軸。生活語彙と職場語彙の両方を一本で拾える。',
   },
   {
-    tmdbId: 70418,
+    tmdbId: 69857,
     title: 'カルテット',
     posterUrl: null,
     firstAirDate: '2017-01-17',
@@ -1212,7 +1217,7 @@ export const DRAMA_PICKS: DramaPick[] = [
     reason: '含みのある言い回しと間の取り方が濃い。行間を聞き取る練習になる。',
   },
   {
-    tmdbId: 46296,
+    tmdbId: 55925,
     title: '半沢直樹',
     posterUrl: null,
     firstAirDate: '2013-07-07',
@@ -1220,15 +1225,15 @@ export const DRAMA_PICKS: DramaPick[] = [
     reason: '銀行が舞台で、交渉と謝罪の場面が多い。かたい敬語をまとめて浴びられる。',
   },
   {
-    tmdbId: 87739,
-    title: 'きのう何食べた?',
+    tmdbId: 89613,
+    title: 'きのう何食べた？',
     posterUrl: null,
     firstAirDate: '2019-04-06',
     badge: '生活の語彙',
     reason: '買い物と料理の描写が細かい。値段、食材、分量など毎日使う言葉が並ぶ。',
   },
   {
-    tmdbId: 88010,
+    tmdbId: 88646,
     title: 'わたし、定時で帰ります。',
     posterUrl: null,
     firstAirDate: '2019-04-16',

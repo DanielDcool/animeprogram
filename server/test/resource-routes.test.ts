@@ -78,7 +78,7 @@ describe('resource routes', () => {
     expect(resources.search).toHaveBeenCalledWith(
       ['テストアニメ S01', 'Test Anime S01', 'テストアニメ', 'Test Anime'],
       'english',
-      { season: 1 },
+      { season: 1, kind: 'anime' },
     );
     expect(response.json()).toMatchObject({
       items: [{ id: resource.id }],
@@ -101,13 +101,13 @@ describe('resource routes', () => {
       1,
       ['テストアニメ S01', 'Test Anime S01', 'テストアニメ', 'Test Anime'],
       'raw',
-      { season: 1 },
+      { season: 1, kind: 'anime' },
     );
     expect(resources.search).toHaveBeenNthCalledWith(
       2,
       ['テストアニメ S01', 'Test Anime S01', 'テストアニメ', 'Test Anime'],
       'all',
-      { season: 1 },
+      { season: 1, kind: 'anime' },
     );
   });
 
@@ -135,7 +135,7 @@ describe('resource routes', () => {
         'Test Anime Season 2',
       ],
       'english',
-      { season: 2 },
+      { season: 2, kind: 'anime' },
     );
   });
 
@@ -165,13 +165,34 @@ describe('resource routes', () => {
     expect(response.json().code).toBe('ANIME_NOT_FOUND');
   });
 
-  it('maps resource upstream failures to a stable 502 response', async () => {
-    const resources = fakeResources(vi.fn().mockRejectedValue(new ResourceUpstreamError()));
+  it('maps resource upstream failures to a stable 502 response with the upstream reason', async () => {
+    const resources = fakeResources(
+      vi.fn().mockRejectedValue(new ResourceUpstreamError('fetch failed (ENOTFOUND)')),
+    );
     const response = await makeApp(fakeCatalog(), resources)
       .inject('/api/catalog/anime/1/resources');
 
     expect(response.statusCode).toBe(502);
     expect(response.json().code).toBe('RESOURCE_UNAVAILABLE');
     expect(response.json().externalSearchUrl).toContain('https://nyaa.si/');
+    expect(response.json().reason).toBe('fetch failed (ENOTFOUND)');
+  });
+
+  it('logs a warning with the upstream reason so proxy problems are visible in the terminal', async () => {
+    const lines: string[] = [];
+    const app = Fastify({
+      logger: { level: 'warn', stream: { write: (line: string) => { lines.push(line); } } },
+    });
+    app.register(resourceRoutes, {
+      catalog: fakeCatalog(),
+      resources: fakeResources(
+        vi.fn().mockRejectedValue(new ResourceUpstreamError('fetch failed (ENOTFOUND)')),
+      ),
+    });
+    await app.inject('/api/catalog/anime/1/resources');
+
+    const warning = lines.find((line) => line.includes('fetch failed (ENOTFOUND)'));
+    expect(warning).toBeDefined();
+    expect(warning).toContain('nyaa.si');
   });
 });

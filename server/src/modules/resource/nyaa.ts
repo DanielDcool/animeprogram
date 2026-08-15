@@ -1,5 +1,7 @@
 import {
   ResourceUpstreamError,
+  nyaaCategoryId,
+  type ContentKind,
   type ResourceCategory,
   type ResourceProvider,
   type ResourceResult,
@@ -11,11 +13,6 @@ type ResourceFetch = (input: string | URL | Request, init?: RequestInit) => Prom
 
 const NYAA_ORIGIN = 'https://nyaa.si';
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const CATEGORY_IDS: Record<ResourceCategory, string> = {
-  english: '1_2',
-  raw: '1_4',
-  all: '1_0',
-};
 
 function decodeXml(value: string): string {
   const withoutCdata = value.replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, '$1');
@@ -87,6 +84,20 @@ function safeDetailUrl(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * undici の fetch は失敗理由を「fetch failed」としか言わず、実際の原因（ENOTFOUND /
+ * ECONNRESET / ETIMEDOUT など）は cause.code に入る。ブロックされたホストや
+ * プロキシ未設定を端末ログと 502 の reason から判別できるよう、コードを message に残す。
+ */
+function describeFetchError(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined;
+  const cause = (error as Error & { cause?: unknown }).cause;
+  const code = cause && typeof cause === 'object' && 'code' in cause
+    ? String((cause as { code?: unknown }).code ?? '')
+    : '';
+  return code ? `${error.message} (${code})` : error.message;
 }
 
 function buildMagnet(infoHash: string, title: string): string | null {
@@ -224,12 +235,20 @@ export function createNyaaResourceProvider(
     category: ResourceCategory,
     options: ResourceSearchOptions,
   ): Promise<ResourceResult[]> {
-    const key = `${category}:${options.season ?? 'any'}:${query.toLocaleLowerCase()}`;
+    // kind をキーに含めないと、同じ検索語がアニメと実写でキャッシュを共有し、
+    // 別カテゴリの結果を返してしまう。
+    const kind: ContentKind = options.kind ?? 'anime';
+    const key = `${kind}:${category}:${options.season ?? 'any'}:${query.toLocaleLowerCase()}`;
     const cached = cache.get(key);
     if (cached && cached.expiresAt > now()) return cached.items;
 
     const url = new URL('/', NYAA_ORIGIN);
-    url.search = new URLSearchParams({ page: 'rss', c: CATEGORY_IDS[category], f: '0', q: query }).toString();
+    url.search = new URLSearchParams({
+      page: 'rss',
+      c: nyaaCategoryId(kind, category),
+      f: '0',
+      q: query,
+    }).toString();
     let response: Response;
     try {
       response = await fetchImpl(url, {
@@ -237,7 +256,7 @@ export function createNyaaResourceProvider(
         signal: AbortSignal.timeout(10_000),
       });
     } catch (error) {
-      throw new ResourceUpstreamError(error instanceof Error ? error.message : undefined);
+      throw new ResourceUpstreamError(describeFetchError(error));
     }
     if (!response.ok) throw new ResourceUpstreamError(`Nyaa returned ${response.status}`);
     try {

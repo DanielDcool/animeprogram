@@ -1,7 +1,9 @@
 import type {
   AnkiExportResult,
   CatalogAnime,
+  CatalogDrama,
   CatalogHome,
+  DramaHome,
   Explanation,
   MediaItem,
   ResourceCategory,
@@ -67,5 +69,14 @@ export const api = {
   catalogDetail: (id: number) => request(`/api/catalog/anime/${id}`).then((r) => j<CatalogAnime>(r)),
   catalogResources: (id: number, category: ResourceCategory) =>
     request(`/api/catalog/anime/${id}/resources?category=${encodeURIComponent(category)}`)
+      .then((r) => j<ResourceSearchResponse>(r)),
+  dramaHome: () => request('/api/drama/home').then((r) => j<DramaHome>(r)),
+  /** キーワードで Nyaa の実写カテゴリを直接引く（作品カタログは経由しない） */
+  dramaSearchResources: (query: string, category: ResourceCategory) =>
+    request(`/api/drama/search?q=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`)
+      .then((r) => j<ResourceSearchResponse>(r)),
+  dramaDetail: (id: number) => request(`/api/drama/${id}`).then((r) => j<CatalogDrama>(r)),
+  dramaResources: (id: number, category: ResourceCategory) =>
+    request(`/api/drama/${id}/resources?category=${encodeURIComponent(category)}`)
       .then((r) => j<ResourceSearchResponse>(r)),
 };

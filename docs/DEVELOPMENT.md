@@ -5,8 +5,10 @@
 > `docs/superpowers/specs/2026-07-21-jp-learning-player-design.md`（MVP 设计）与
 > `docs/superpowers/plans/2026-07-21-jp-learning-player-mvp.md`（MVP 实现计划，已全部完成）。
 > 动画发现功能见 `docs/superpowers/specs/2026-07-22-anime-discovery-design.md` 与对应 plan。
+> アニメ/ドラマ 双模式见 `docs/superpowers/specs/2026-08-14-drama-mode-design.md` 与对应 plan
+> （注意：该 spec 的 CSS 工作量估算与降级分支在实施中被修正，以本文件 §4 为准）。
 >
-> 最后校对：2026-08-08。
+> 最后校对：2026-08-15。
 
 ## 0. 如何使用这份文档
 
@@ -25,6 +27,11 @@
 **默认不显示字幕**，尽量靠听；没听懂时暂停 → 显示当前句 → 右侧面板分词/查词/AI 语法讲解 → 收藏生词 → 继续。
 用户 Daniel（N1、后端工程师）自用，宁可简单能用，不要过度设计。迭代方式：先做 MVP，实际使用后调整。
 
+内容分**アニメ**与**ドラマ（日剧）**两个模式，顶部导航切换，整站视觉随之在墨黑与米白之间反转。
+日剧只覆盖日语作品：现代口语、职场与日常场景，比动画更贴近真实工作日语——这是把它纳入的唯一理由，
+不做通用影视数据库。两个模式共用同一条学习管线（扫描 / remux / 播放器 / 分词 / 词典 / AI 讲解 / 生词本），
+差异只在目录来源（AniList 实时 vs 随包手写清单）、Nyaa 分类和 jimaku 检索范围。
+
 ## 2. 架构总览
 
 本地双进程：`npm start` 同时起 server(3001) 与 web(5173，/api 代理到 3001)。
@@ -39,34 +46,40 @@ server/src/
                scanner.ts(指定文件/整目录扫描,返回新增ID) watcher.ts(稳定性检测+目录监听+周期对账)
                routes.ts(列表/手动scan/Range流)
     subtitle/  parser.ts(srt+ass→Cue{start,end,text}) routes.ts(句子列表+偏移)
-    analyze/   tokenizer.ts(kuromoji惰性单例) dictionary.ts(JMdict查词)
+    analyze/   tokenizer.ts(kuromoji惰性单例) dictionary.ts(JMdict查词) romaji.ts(かな→ヘボン式,検索語生成)
                jmdict-import.ts(流式导入) routes.ts(/api/analyze)
     ai/        explain.ts(Anthropic / DeepSeek / OpenAI / Gemini API, structured outputs) routes.ts(/api/explain, SQLite缓存)
     jimaku/    client.ts(jimaku.cc API + pickBestFile) service.ts(可复用字幕下载)
                sync.ts(持久状态+去重串行自动取得) routes.ts(candidates/download)
     catalog/   client.ts(AniList GraphQL + normalize + 10分钟缓存)
                editorial.ts(本地学习向推荐理由) routes.ts(/api/catalog/*)
-    resource/  provider.ts(统一资源类型) nyaa.ts(RSS解析/排序/5分钟缓存)
+    drama/     editorial.ts(手写日剧清单=唯一目录源,含类型定义) routes.ts(/api/drama/*,含关键词直搜)
+    resource/  provider.ts(统一资源类型 + ContentKind + Nyaa分类表) nyaa.ts(RSS解析/排序/5分钟缓存)
                routes.ts(/api/catalog/anime/:id/resources)
     vocab/     anki.ts(AnkiConnect客户端+卡片格式/去重) routes.ts(收藏 CRUD + 一键导出)
     misc/      routes.ts(progress + settings)
 web/src/
   api.ts                 唯一的后端调用出口（所有 fetch 都在这）
-  pages/                 DiscoverPage / AnimeDetailPage / LibraryPage / PlayerPage / VocabPage / SettingsPage
+  mode.ts                アニメ/ドラマ 模式纯逻辑（存储值归一化 + 有效模式推导）
+  pages/                 DiscoverPage / DramaDiscoverPage / AnimeDetailPage / DramaDetailPage
+                         LibraryPage / PlayerPage / VocabPage / SettingsPage
   catalog/               view.ts（季度/状态/评分）resourceView.ts（资源显示纯函数）
-                         ResourceResults.tsx（Nyaa 候选与 magnet 交接）
+                         ResourceResults.tsx（Nyaa 候选与 magnet 交接，取数可注入）
+  drama/                 view.ts（放送年ラベル）
   player/                learningMode.ts(纯reducer,核心状态机) AnalysisPanel / TranscriptList / SubtitleOverlay
 ```
 
 SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jimaku_mapping, subtitle_sync_state, vocab`
 （settings 存 `ai_provider` / `anthropic_api_key` / `deepseek_api_key` / `openai_api_key` / `gemini_api_key` /
 `jimaku_api_key` / `ai_model` / `media_dir`，凭证值不得进入日志、测试或文档）。
+settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 
 ## 3. 已完成功能
 
 | 功能 | 关键位置 |
 |------|----------|
-| 媒体扫描：mkv 自动 remux 成 .play.mp4、抽内嵌字幕、外部 `.ja.srt` 优先 | media/scanner.ts |
+| 媒体扫描：mkv 自动 remux 成 .play.mp4、抽内嵌字幕、外部 `.ja.srt` 优先；扫描时先对已有条目重新解析文件名（`reparseExistingMedia`），解析器升级后旧数据点一次扫描即自动修正 | media/scanner.ts |
+| 文件名解析：支持 `SxxExx`、点分隔 scene 命名（`A.B.S02E01.1080p...-GROUP`）、`- NN`、`第NN話`；剥掉年份/版本 v2/发布组/画质/编码尾巴，得到干净作品名+集数，供 jimaku 按标题+集数匹配 | media/filename.ts |
 | H.265/HEVC Main 10 只在已验证的 macOS 浏览器路径 remux；Windows/Linux 保守标记「要トランスコード」，H.264 10-bit 等不兼容源同样不放行 | media/ffmpeg.ts decidePlayability |
 | 学习模式：首次默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显且开关在浏览器本地保持；[ ] 偏移±100ms；右侧解析独立保持已选句，重听时不消失；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
 | 桌面播放器布局：视频/解析面板之间可拖动调宽并记住宽度；自定义全屏会将视频、状态和字幕层一起全屏 | PlayerPage + playerLayout.ts |
@@ -75,7 +88,7 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，打开即定位当前句，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
 | AI 深度讲解：D 键，设置页可选 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini；统一输出{翻译/语法结构/表现/语气}，只给原句中出现的日语汉字标读音，解释新增术语不标；按格式版本/服务/模型/句子缓存 | ai/explain.ts |
-| jimaku 字幕匹配：候选选择一次→jimaku_mapping 记住→按 episode 自动下载(.srt优先,跳过压缩包) | jimaku/* |
+| jimaku 字幕匹配：每系列候选选一次→存 jimaku_mapping→**同系列其余集自动下载**（选完立即 reconcile，2.5s 间隔防限流，.srt 优先跳过压缩包）；启动/扫描/watcher 也会补下有映射的缺字幕集 | jimaku/* + sync.ts |
 | 生词本：词/句收藏（带出处+时间戳，去重），详情页显示本地释义、既有 AI 缓存和精准播放链接；一键创建/更新 Anki 的 `tanku Anime` 牌组 | vocab/anki.ts + routes.ts + VocabPage + VocabDetailPage |
 | 观看进度：5 秒一存，暂停/离页补存；重新进入自动恢复，带 `?t=` 的生词链接一次性优先 | misc/routes.ts + playbackPosition.ts + PlayerPage |
 | 动画发现：首页实时显示当前季/上季、学习向 3 部推荐、日/英/罗马字搜索、响应式卡片 | catalog/* + DiscoverPage |
@@ -85,6 +98,9 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 | 开源首用与故障反馈：空媒体库三步引导；设置页区分必需媒体与可选扩展；媒体库/设置/单词本/解析有统一加载、错误、重试，单词删除支持一次撤销；未知路由显示 404 | LibraryPage + SettingsPage + VocabPage + AnalysisPanel + NotFoundPage |
 | 视觉系统改版：墨黑+米白单色系统，全部颜色/字体/圆角收敛为 index.css `:root` token；标识推导的四构件（方块 10px 圆角 / 选中态底边缺口 / 双横眼 / 短横指示器）贯穿导航、选集、解析面板；播放器字幕使用透明底高对比文字，避免遮挡画面 | index.css + components/BrandMark + App + 各页面 |
 | 开源安装降摩擦：`npm start` 启动预检（Node 22 硬检查、FFmpeg 分级警告、`TANKU_SKIP_PRECHECK=1` 跳过）；`npm run setup:jmdict` 一键下载/解压/导入词典，失败时给手动兜底指引 | scripts/precheck.mjs + scripts/start.mjs + analyze/jmdict-download.ts + server/scripts/setup-jmdict.ts |
+| アニメ/ドラマ 双模式：顶部导航切换，整站在墨黑（アニメ）与米白（ドラマ）两套主题间反转；标识形状不变只反转配色；播放页在两模式下都保持墨黑 | web/src/mode.ts + App.tsx + index.css `[data-mode]` + BrandMark |
+| 日剧发现：按听力难度分级的随包清单 15 部 + 昼顔横幅，零配置可用；清单外的作品用顶部搜索框按关键词直搜 Nyaa，日文输入 0 命中时自动改用罗马字读音重查 | drama/* + analyze/romaji.ts + DramaDiscoverPage |
+| 日剧资源与字幕：Nyaa Live Action 分类（默认 raw）复用既有排序与 magnet 管线；jimaku 候选同时查动画与真人剧库并合并去重 | resource/provider.ts + drama/routes.ts + jimaku/client.ts |
 
 **已验证基线（截至 2026-08-08）**：
 
@@ -178,6 +194,28 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   解压 `jmdict-eng-3.6.2.json` → 导入 217,974 词条（与既有导入基线一致）并输出 EDRDG / CC BY-SA 署名；再次运行
   命中「Reusing existing」跳过下载；`--tag bogus-tag` 走 404 错误路径并输出手动兜底指引，退出码非 0。
   Node 版本硬失败分支仅有单元覆盖，尚未用真实的错误版本 Node 实跑。
+- 2026-08-15：アニメ/ドラマ 双模式落地。浏览器实测两个模式下逐页扫描（発見 / 詳細 / ライブラリ /
+  単語帳 / 設定 / 404），前景与背景对比度低于 3:1 的元素为 **0**，边框不可见项为 0。ドラマ模式下打开
+  播放路由，`<html data-mode>` 变为 `anime`、页面与导航底色均为 `#0B0B0A`、解析面板仍是米白亮岛，
+  离开后恢复 `drama`；localStorage 中用户选择的模式全程未被播放页改写。验证期间未播放任何媒体
+  （video 元素确认 muted 且 paused）。全新标签页控制台无 warning / error。
+- 2026-08-15：日剧资源搜索用真实 Nyaa 数据完成闭环。`半沢直樹` 返回 2 条、`アンナチュラル` 11 条
+  真实 Live Action - Raw 发布，magnet 全部为合法 `magnet:?xt=urn:btih:` 形式，整季包排序在前。
+  `きのう何食べた？` 无 raw 发布，切到「字幕付き」（`c=4_1`）后命中真实英译发布——同时反向验证了
+  真人剧子分类映射正确（若误用 `4_2` 会返回偶像 PV）。
+- 2026-08-15：**jimaku 真人剧支持已用真实 key 实测确认**（此前只是从 `jimaku.cc/dramas` 页面存在性推断）。
+  `半沢直樹` 返回 2 条、`Unnatural` 1 条，均为 `anilist_id` 为空的真人剧条目——改动前 `anime=true`
+  会将其全部排除。验证脚本为一次性临时文件，运行后已删除，凭证值未进入任何输出。
+- 2026-08-15：自动测试基线为 server 185 个、web 53 个；两端 `tsc --noEmit` 与 web production build 通过。
+  TMDB 侧尚未用真实 token 联调（见 §5）。
+- 2026-08-15：首个外部用户反馈「下载区只显示去 nyaa 网站的链接」，定位为服务端 fetch 到不了 nyaa.si
+  （国内网络 + Node 不走系统代理），并非配置缺失。已落地：`nyaa.ts` 把 undici 的 `cause.code` 并入错误信息
+  （`fetch failed (ENOTFOUND)`）；动画/日剧两条资源路由的 502 增加 `reason` 字段并 `log.warn` 到终端；
+  前端 error 卡片改为说明「是服务器而非浏览器要连 nyaa.si」+ mono 字体的 `NODE_USE_ENV_PROXY` 修复提示 +
+  上游原因；三语 README 与 `docs/AI-SETUP.md` 加入代理排障小节。用 `--import` 预载脚本在隔离端口
+  （3101/5273、临时 DATA_DIR/MEDIA_DIR）把 nyaa.si 伪装成 ENOTFOUND 做了真实浏览器验证：卡片文案、
+  提示与 `詳細: fetch failed (ENOTFOUND)` 全部出现，终端有 level 40 警告行，控制台只有预期的 502；
+  验证用启动配置与临时目录已清理，真实 3001 服务未受影响。
 
 ## 4. 关键决策记录（为什么这么做）
 
@@ -249,6 +287,55 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   下载先写 `.download` 临时文件、成功后 rename，失败不留半成品并提示手动 import-jmdict 兜底。
   `JMDICT_VENDOR_DIR` 只用于验证与测试隔离，正常用户不需要设置。
 
+- **日剧不镜像 TMDB 目录，只手写精选**（2026-08-14）：[TMDB API 条款](https://www.themoviedb.org/api-terms-of-use)
+  禁止缓存超过 6 个月，且 TMDB Content 不得再分发，因此**放弃「拉一次数据当默认模板提交进仓库」**的方案
+  （用户提出，核实条款后否决）。除条款外还有两个实际理由：日剧按クール更新，快照一季就过时，首页显示
+  半年前的剧比空着更糟；这与 §8「不把外部目录当作可永久镜像的项目资产」直接冲突。替代方案是
+  `drama/editorial.ts` 里 Daniel 手写的学习向精选——原创内容、不会过期、且是本项目独有的价值。
+  海报**只存 `image.tmdb.org` 的 URL 不存图片文件**（版权素材不进仓库），与番剧侧 AniList 封面的既有做法一致。
+- **播放页在两个模式下都保持墨黑**（2026-08-15）：播放页是「观看」界面而非「浏览」界面，白底在暗环境刺眼
+  且降低画面对比度；更重要的是会让「解析面板是页面上唯一大面积亮色」这条强调学习内容的原则反向失效。
+  实现上不复制任何 CSS——token 声明挂在 `[data-mode]` 属性选择器上，靠自定义属性沿 DOM 继承，
+  `effectiveMode(mode, pathname)` 对 `/play/` 开头的路由返回 `anime` 写到 `<html>` 即可。
+- **Nyaa 真人剧子分类与动画不是平行编号**（2026-08-15，已在 nyaa.si 实测）：动画的第 1 位是 AMV，
+  真人剧没有 AMV 而把英译放在第 1 位。英文字幕 `1_2`↔**`4_1`**、非英文 `1_3`↔**`4_2`**、Raw `1_4`↔**`4_4`**，
+  `4_3` 是 Idol/PV。「把 1 改成 4」会静默搜到偶像 PV 和演唱会，因此分类表按内容类型拆成两张并有回归测试锁定。
+  Nyaa 缓存键也必须带 `kind`，否则同一查询词会在两种内容之间串味。
+- **精选清单按「听力难度」分级，而不是按人气或评分**（2026-08-15）：15 部作品各带 `level`
+  （`N3` / `N2` / `N1` / `N1+`），首页从易到难排列，另有 1 部（昼顔）占据横幅位。分级参考了
+  中文圈按 JLPT 难度编排的日剧精讲合集所反映的实际教学取舍，作品名是客观事实，推荐理由为本项目原创。
+  这条正是 §8「后续发现功能应朝按水平/对话密度推荐靠拢」的落地——比通用人气榜有价值的地方就在这里。
+  `level` 只存在于手写条目，TMDB 来源的作品没有该字段（`CatalogDrama.level` 为可选）。
+  **电影不进清单**：`新幹線大爆破` 等虽在参考合集中出现，但学习管线是围绕剧集建的
+  （jimaku 按 series→entry 映射、文件名解析要抽集数），为单片加 `/movie/` 分支不划算。
+  **续作不单独立项**：`ドラゴン桜2`、`ブラックペアン2`、`VIVANT` S2 在 TMDB 上没有独立 ID，
+  都挂在 S1 条目下；本清单保持「一作品一行」，不引入季度字段。
+- **日文搜索 0 命中时自动回退到罗马字读音**（2026-08-15）：Nyaa 实写分类的发布名大量使用罗马字，
+  日文原题可能一条都搜不到。用已有的 kuromoji 取读音，经 `analyze/romaji.ts` 转成ヘボン式，
+  作为第二检索语交给 provider（provider 本就「按顺序试，取第一个非空」）。实测「きのう何食べた」
+  日文 0 件 →「Kinou Nani Tabeta」48 件且全部为该作。翻字失败不影响搜索本身（catch 后只用原输入）。
+  助詞 は/へ/を 按发音拼成 wa/e/o；长音记号丢弃以吸收 グルメ/グールメ 之类的写法差异。
+  页面同时显示「你输入的词」和「实际命中的词」，回退过程对用户可见。
+- **日剧检索优先用罗马字而非日文原题**（2026-08-15 实测）：Nyaa 实写分类里发布组大量使用罗马字命名。
+  `アンナチュラル` 0 件 vs `Unnatural` 20 件；`きのう何食べた` 0 件 vs `What Did You Eat Yesterday` 4 件。
+  且**当用的是「原题的罗马字转写」而非官方英译**——`We Married as a Job` 0 件、
+  `Nigeru wa Haji da ga Yaku ni Tatsu` 29 件。精选清单因此带 `titleRomaji` 字段并映射进 `titleEnglish` 参与检索。
+- **TMDB 不可用时回退本地精选，不阻断资源搜索**（2026-08-15）：原设计遗漏了这个分支，导致一个倒挂——
+  没配 token 的用户精选剧资源搜索照常工作，配了 token 但 TMDB 挂掉时同一部剧反而 502。
+  Nyaa 与 jimaku 都不经过 TMDB，TMDB 的可用性不该决定「这部精选剧能不能下载和学习」。
+  现由 `drama/routes.ts` 的 `resolveDrama()` 统一处理：无 token / TMDB 返回 null / TMDB 抛错且命中精选 →
+  用本地条目；不在精选清单里才 502。与「AniList 故障只影响发现页」是同一原则。
+- **jimaku 候选合并动画与真人剧，媒体库不区分内容类型**（2026-08-15）：候选搜索同时请求
+  `anime=true` 与 `anime=false` 并按 entry id 合并去重，单边失败不影响另一边。这样 `media` 表不需要
+  kind 字段、不需要新 UI、番剧侧行为零退化——候选本来就是「人工选一次后记住映射」，与合并天然吻合。
+
+- **服务端外呼的代理支持交给 Node 内置开关，不引入 undici 依赖**（2026-08-15）：Node 全局 `fetch`
+  不读系统代理，也不读 `HTTPS_PROXY`，这是国内用户「资源搜索只剩 nyaa 外链」的根因。Node 22.21 起自带
+  `NODE_USE_ENV_PROXY=1` / `--use-env-proxy`（官方文档已核实），能让全局 fetch 走 `HTTP(S)_PROXY`，
+  且 `start.mjs` 原样透传环境变量，因此选择只做文案 + README 指引，不为此加 `undici` 依赖或自写
+  ProxyAgent。代价：Node 22.12–22.20 的用户没有这个开关，只能靠代理软件的 TUN 模式；已在提示中写明版本要求。
+  `start.mjs` 自动补 `NODE_USE_ENV_PROXY=1` 的想法暂不做，等确认新版 Node 用户仍会漏设第二个变量再说。
+
 ## 5. 已知小问题 / 待打磨
 
 - jimaku_mapping.entry_name 存的是 ID 字符串而非作品名（仅备注字段，不影响功能，顺手可修）
@@ -260,7 +347,9 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
 - AniList 的作品简介多数是英文，首版不自动翻译；后续需真实使用确认是否值得接入缓存翻译
 - 编辑推荐理由按 AniList ID 本地维护；新季度若没有配置，会自动退化为本季人气前三而无定制理由
 - 新番目录依赖网络与 AniList 可用性；当前只有 10 分钟进程内缓存，服务重启后不会离线保留
-- Nyaa RSS 依赖外网；网络或站点不可用时页面只能显示稳定错误并回退到 Nyaa 站内搜索链接
+- Nyaa RSS 依赖外网；网络或站点不可用时页面只能显示稳定错误并回退到 Nyaa 站内搜索链接。错误卡片会带上
+  上游原因（如 `fetch failed (ENOTFOUND)` / 超时）与 `NODE_USE_ENV_PROXY` 提示，但 Node < 22.21 没有该开关，
+  这类用户只能改用代理软件的 TUN 模式；AniList / jimaku 同样受服务端不走系统代理影响，目前只在文档说明
 - 资源排序只能依据 Nyaa 元数据与标题模式；`trusted` 表示 Nyaa 站内标记，不等于版权许可或文件绝对安全
 - 季度识别依赖标题中的明确标记；没有 `II/S02/Season 2/第2期` 等标记的续作可能被视为第一季，
   后续若真实遇到再引入 AniList 关系链人工校正，不为少数例外先做复杂映射。
@@ -275,6 +364,24 @@ SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jim
   12–14 秒附近可复现，字幕列表会看到少量重复句。当前保留源时间轴，后续应在真实使用确认后再做安全去重。
 - OpenAI 提供商已用注入的 HTTP 响应完成路由回归测试，但尚未用用户真实 OpenAI Platform key 生成过讲解；
   配置后应完成一次 D 键实弹联调，再决定是否需要调整默认模型或输出 token 上限。
+- **TMDB 侧全部路径尚未用真实 token 联调**：客户端、路由、降级分支都只有注入 fake 的测试覆盖。
+  配置 token 后需实测：当季/上季クール一览、日剧搜索、详情页的日语简介与 JP 区配信入口。
+- 精选清单的 `posterUrl` 目前全部为 `null`，封面显示为 `--stripe-cover` 底纹。配好 TMDB token 后运行
+  `TMDB_TOKEN=<token> npx tsx scripts/resolve-drama-picks.ts`（在 `server/` 下）取得海报 URL 并回填
+  `drama/editorial.ts`。脚本按已核实的 tmdbId 取详情，不按剧名搜索，避免命中同名剧或特别篇。
+- 精选清单的 15 条推荐理由与难度分级是协作方起草的初稿，**尚未经 Daniel 定稿**。作品选择来自他提供的
+  参考合集，但每条的 `badge` / `reason` / `level` 都应由他按自己的学习判断复核。
+- `GTO` 在 TMDB 上有 1998 真人版（62057）、1999 动画版（43017）、2012 版（46127）与 2026 复活版（325022）；
+  搜索时动画版排序靠前，清单锁定的是 1998 真人版。日后若要重新解析 ID，不能只按标题字符串匹配。
+- 《重启》取 `リブート`（304194，2026 TBS）而非 `ブラッシュアップライフ`（中文名是《重启人生》）；
+  若参考来源实指后者，需改这一条。
+- `buildSeasonSearchQueries` 生成的 `S01` 后缀对日剧基本不命中（日剧发布文件名少见 `SxxExx`），
+  实际靠裸标题兜底。目前够用，若真实使用中发现问题再考虑为日剧单独构造查询，不提前做。
+- `カルテット`（Quartet）、`silent` 这类通用词做查询时，Nyaa 实写分类噪音较大；排序能缓解但不能消除。
+- 日剧在 Nyaa 上的做种数普遍低于热门番剧，老剧可能无候选；页面保留「Nyaa で検索」外链兜底。
+- 视觉改版遗留：`.editorial-card.surface-warm .pick-number` 在 anime 模式下原本只有 1.51:1 对比度
+  （温白面上的浅色序号几乎不可见），已随双主题改造一并修正为 4.26:1。同类问题若在其他构件上出现，
+  按「反色岛内部的文字用 `--on-invert-muted`」处理。
 
 ## 6. 下一步路线图
 
@@ -339,10 +446,14 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 ## 7. 开发约定
 
 - **TDD**：纯逻辑（解析、状态机、文件挑选、路由）先写 vitest 测试；外部依赖（ffmpeg/jimaku/AI API）
-  全部依赖注入 fake。跑法：`npm test`（当前 server 136 + web 36，改完必须全绿）。
+  全部依赖注入 fake。跑法：`npm test`（当前 server 185 + web 53，改完必须全绿；以实际输出为准）。
 - **模块模式**：新功能 = `server/src/modules/<name>/routes.ts`（Fastify plugin，opts 传 db 和可注入依赖）
   + `index.ts` 注册 + `web/src/api.ts` 加方法。别在组件里直接 fetch。
-- **UI**：颜色只用 index.css `:root` 变量；日文 UI 文案；学习模式相关逻辑进 learningMode.ts reducer（保持可测）。
+- **UI**：颜色只用 index.css 的语义 token（`--bg` / `--text` / `--surface` / `--border` 等，声明在
+  `[data-mode="anime"]` 与 `[data-mode="drama"]` 两个块里），**不要直接写 `--ink-*` / `--bone-*` 调色板变量**——
+  那样在另一个模式下不会翻转。跟页面底色走的用语义 token，刻意与页面反差的面（选中态、错误提示、
+  解析面板）用反色岛 token（`--invert-surface` / `--on-invert` / `--invert-border` 等）。
+  两个模式的 token 键集必须保持一致。日文 UI 文案；学习模式相关逻辑进 learningMode.ts reducer（保持可测）。
 - **提交**：不假设 `main`/`master`；用户明确要求提交时，以当前分支为准，一个完整功能一个中文 commit。推送需另行授权。
 - **浏览器验证**：改 UI 后用 dev server 实测（.claude/launch.json 已配 server/web 两个配置）。
 

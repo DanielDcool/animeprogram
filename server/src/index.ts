@@ -14,6 +14,9 @@ import { createAniListCatalog } from './modules/catalog/client.js';
 import { catalogRoutes } from './modules/catalog/routes.js';
 import { createNyaaResourceProvider } from './modules/resource/nyaa.js';
 import { resourceRoutes } from './modules/resource/routes.js';
+import { dramaRoutes } from './modules/drama/routes.js';
+import { romajiSearchTerm } from './modules/analyze/romaji.js';
+import { tokenize } from './modules/analyze/tokenizer.js';
 import { createSubtitleSyncCoordinator } from './modules/jimaku/sync.js';
 import { createMediaDirectoryWatcher } from './modules/media/watcher.js';
 
@@ -68,11 +71,22 @@ export async function buildApp(opts: {
     defaultMediaDir: config.defaultMediaDir,
     mediaDirOverridden: config.mediaDirOverride != null,
   });
-  await app.register(jimakuRoutes, { db });
+  await app.register(jimakuRoutes, {
+    db,
+    onSubtitlesResolved: subtitleSync ? () => { void subtitleSync.reconcile(); } : undefined,
+  });
   await app.register(vocabRoutes, { db, appBaseUrl: opts.appBaseUrl ?? config.appBaseUrl });
   const catalog = createAniListCatalog();
   await app.register(catalogRoutes, { client: catalog });
-  await app.register(resourceRoutes, { catalog, resources: createNyaaResourceProvider() });
+  const resources = createNyaaResourceProvider();
+  await app.register(resourceRoutes, { catalog, resources });
+  // トークンは設定画面で後から保存されうるので、リクエストごとに読み直して
+  // 変わったときだけクライアントを作り直す（再起動不要にするため）
+  await app.register(dramaRoutes, {
+    resources,
+    // 検索窓に日本語を打たれたとき、リリース側の綴りに寄せた第 2 検索語を作る
+    toRomaji: async (text) => romajiSearchTerm(await tokenize(text)),
+  });
   if (subtitleSync && mediaWatcher) {
     app.addHook('onReady', async () => {
       await subtitleSync.reconcile();

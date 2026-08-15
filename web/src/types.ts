@@ -77,6 +77,22 @@ export interface CatalogHome {
   featured: CatalogAnime[];
 }
 
+export type DramaLevel = 'N3' | 'N2' | 'N1' | 'N1+';
+export interface CatalogDrama {
+  id: number;
+  title: string;
+  titleRomaji: string | null;
+  coverImage: string | null;
+  bannerImage: string | null;
+  startDate: string | null;
+  level: DramaLevel;
+  recommendation: { badge: string; reason: string };
+}
+export interface DramaHome {
+  hero: CatalogDrama;
+  picks: CatalogDrama[];
+}
+
 export type ResourceCategory = 'english' | 'raw' | 'all';
 export interface ResourceResult {
   id: string;

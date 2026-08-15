@@ -3,6 +3,7 @@ import { api } from '../api';
 import type { ResourceCategory, ResourceSearchResponse } from '../types';
 import {
   compatibilityMessage,
+  resourceErrorHint,
   resourceMetaLabels,
   resourceStateCopy,
   type ResourceViewState,
@@ -15,32 +16,57 @@ const CATEGORIES: Array<{ value: ResourceCategory; label: string }> = [
 ];
 
 interface ApiFailure extends Error {
-  body?: { externalSearchUrl?: string };
+  body?: { externalSearchUrl?: string; reason?: string };
 }
 
-export default function ResourceResults({ animeId }: { animeId: number }) {
-  const [category, setCategory] = useState<ResourceCategory>('english');
+export default function ResourceResults({
+  subjectId = 0,
+  defaultCategory = 'english',
+  fetchResources,
+  autoLoadOn,
+}: {
+  /** リセットの手掛かり。取得口を差し込む場合は使われない */
+  subjectId?: number;
+  /** ドラマは raw が既定（日本のテレビ録画が大半で、英語字幕は学習に不要） */
+  defaultCategory?: ResourceCategory;
+  /** 省略時はアニメの取得口。ドラマ側が自分の取得口を差し込む */
+  fetchResources?: (category: ResourceCategory) => Promise<ResourceSearchResponse>;
+  /** 値が変わるたびに自動で取得する。キーワード検索のように「押す前から結果が要る」場合用 */
+  autoLoadOn?: string;
+}) {
+  const [category, setCategory] = useState<ResourceCategory>(defaultCategory);
   const [state, setState] = useState<ResourceViewState>('idle');
   const [result, setResult] = useState<ResourceSearchResponse | null>(null);
   const [errorFallback, setErrorFallback] = useState('');
+  const [errorReason, setErrorReason] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    setCategory('english');
+    setCategory(defaultCategory);
     setState('idle');
     setResult(null);
     setErrorFallback('');
-  }, [animeId]);
+    setErrorReason(undefined);
+  }, [subjectId, defaultCategory]);
+
+  useEffect(() => {
+    if (autoLoadOn) void load(defaultCategory);
+    // load は毎レンダー作り直されるので依存に入れない（入れると無限ループになる）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoLoadOn]);
 
   async function load(nextCategory = category) {
     setState('loading');
     setErrorFallback('');
     try {
-      const response = await api.catalogResources(animeId, nextCategory);
+      const response = fetchResources
+        ? await fetchResources(nextCategory)
+        : await api.catalogResources(subjectId, nextCategory);
       setResult(response);
       setState(response.items.length ? 'ready' : 'empty');
     } catch (error) {
       setResult(null);
       setErrorFallback((error as ApiFailure).body?.externalSearchUrl ?? '');
+      setErrorReason((error as ApiFailure).body?.reason);
       setState('error');
     }
   }
@@ -88,6 +114,7 @@ export default function ResourceResults({ animeId }: { animeId: number }) {
       {state !== 'ready' && (
         <div className={`download-state ${state}`}>
           <p>{resourceStateCopy(state)}</p>
+          {state === 'error' && <p className="download-hint">{resourceErrorHint(errorReason)}</p>}
           {(state === 'empty' || state === 'error') && fallbackUrl && (
             <a href={fallbackUrl} target="_blank" rel="noreferrer">Nyaa で検索 ↗</a>
           )}
