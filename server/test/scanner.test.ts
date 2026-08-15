@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createDb } from '../src/db.js';
-import { scanLibrary, type FfmpegOps } from '../src/modules/media/scanner.js';
+import { scanLibrary, reparseExistingMedia, type FfmpegOps } from '../src/modules/media/scanner.js';
 
 function tmpLib(files: string[]): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lib-'));
@@ -149,5 +149,29 @@ describe('scanLibrary', () => {
     const second = await scanLibrary(db, dir, retryOps);
     expect(second.importedIds).toHaveLength(1);
     expect(second.failedFiles).toEqual([]);
+  });
+});
+
+describe('reparseExistingMedia', () => {
+  it('re-parses stored rows with the improved parser and reports changes', () => {
+    const db = createDb(':memory:');
+    // 旧パーサが残した「ゴミ作品名 + episode null」を模擬
+    db.prepare(`INSERT INTO media (series, episode, file_path, codec_status) VALUES (?,?,?,?)`).run(
+      'Mushoku.Tensei.Jobless.Reincarnation.S02E01.The.Depressed.Magician.1080p.AMZN.WEB-DL.DDP2.0.H.264-VARYG',
+      null,
+      '/lib/Mushoku.Tensei.Jobless.Reincarnation.S02E01.The.Depressed.Magician.1080p.AMZN.WEB-DL.DDP2.0.H.264-VARYG.mkv',
+      'remuxed',
+    );
+    // すでに正しく解析済みの行は変更されない
+    db.prepare(`INSERT INTO media (series, episode, file_path, codec_status) VALUES (?,?,?,?)`).run(
+      'Sousou no Frieren', 1, '/lib/Sousou no Frieren - 01 [1080p].mkv', 'direct',
+    );
+
+    const changed = reparseExistingMedia(db);
+    expect(changed).toBe(1);
+
+    const rows = db.prepare('SELECT series, episode FROM media ORDER BY id').all() as any[];
+    expect(rows[0]).toEqual({ series: 'Mushoku Tensei Jobless Reincarnation', episode: 1 });
+    expect(rows[1]).toEqual({ series: 'Sousou no Frieren', episode: 1 });
   });
 });

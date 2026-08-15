@@ -62,6 +62,26 @@ export function listSourceVideos(mediaDir: string): string[] {
   return files;
 }
 
+// 既存の media 行を最新の parseFilename で解析し直し、変わった行だけ series/episode を更新する。
+// 解析器を改善したとき、再スキャンで古いゴミ作品名（jimaku 検索が失敗する原因）を直すため。
+export function reparseExistingMedia(db: Db): number {
+  const rows = db.prepare('SELECT id, file_path, series, episode FROM media').all() as
+    { id: number; file_path: string; series: string; episode: number | null }[];
+  const update = db.prepare('UPDATE media SET series=?, episode=? WHERE id=?');
+  let changed = 0;
+  const apply = db.transaction(() => {
+    for (const row of rows) {
+      const { series, episode } = parseFilename(path.basename(row.file_path));
+      if (series !== row.series || episode !== row.episode) {
+        update.run(series, episode, row.id);
+        changed++;
+      }
+    }
+  });
+  apply();
+  return changed;
+}
+
 export async function scanFiles(
   db: Db,
   mediaDir: string,
@@ -69,6 +89,7 @@ export async function scanFiles(
   ops: FfmpegOps = realOps,
   platform: NodeJS.Platform = process.platform,
 ): Promise<ScanResult> {
+  reparseExistingMedia(db);
   const importedIds: number[] = [];
   const failedFiles: string[] = [];
   const root = path.resolve(mediaDir);

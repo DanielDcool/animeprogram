@@ -79,7 +79,8 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 
 | 功能 | 关键位置 |
 |------|----------|
-| 媒体扫描：mkv 自动 remux 成 .play.mp4、抽内嵌字幕、外部 `.ja.srt` 优先 | media/scanner.ts |
+| 媒体扫描：mkv 自动 remux 成 .play.mp4、抽内嵌字幕、外部 `.ja.srt` 优先；扫描时先对已有条目重新解析文件名（`reparseExistingMedia`），解析器升级后旧数据点一次扫描即自动修正 | media/scanner.ts |
+| 文件名解析：支持 `SxxExx`、点分隔 scene 命名（`A.B.S02E01.1080p...-GROUP`）、`- NN`、`第NN話`；剥掉年份/版本 v2/发布组/画质/编码尾巴，得到干净作品名+集数，供 jimaku 按标题+集数匹配 | media/filename.ts |
 | H.265/HEVC Main 10 只在已验证的 macOS 浏览器路径 remux；Windows/Linux 保守标记「要トランスコード」，H.264 10-bit 等不兼容源同样不放行 | media/ffmpeg.ts decidePlayability |
 | 学习模式：首次默认无字幕；Space 暂停+显示；A 回句首（快速连按回上一句）；←/→ 跳句；S 常显且开关在浏览器本地保持；[ ] 偏移±100ms；右侧解析独立保持已选句，重听时不消失；页面快捷键提示可直接点击 | player/learningMode.ts + PlayerPage |
 | 桌面播放器布局：视频/解析面板之间可拖动调宽并记住宽度；自定义全屏会将视频、状态和字幕层一起全屏 | PlayerPage + playerLayout.ts |
