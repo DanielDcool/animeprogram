@@ -321,3 +321,81 @@ describe('nyaaCategoryId', () => {
     expect(all).not.toContain('4_3');
   });
 });
+
+describe('episode-vs-pack ranking for japanese drama naming', () => {
+  const item = (title: string, seeders: number) => `
+    <item>
+      <title>${title}</title>
+      <guid>https://nyaa.si/view/${seeders}00</guid>
+      <nyaa:infoHash>${String(seeders).padStart(2, '0')}${'a'.repeat(38)}</nyaa:infoHash>
+      <nyaa:size>1.4 GiB</nyaa:size>
+      <nyaa:seeders>${seeders}</nyaa:seeders>
+      <nyaa:leechers>0</nyaa:leechers>
+      <nyaa:downloads>0</nyaa:downloads>
+      <nyaa:trusted>No</nyaa:trusted>
+      <nyaa:remake>No</nyaa:remake>
+      <nyaa:category>Live Action - Raw</nyaa:category>
+      <pubDate>Sat, 09 Aug 2026 00:00:00 -0000</pubDate>
+    </item>`;
+  const rss = (titles: Array<[string, number]>) =>
+    `<rss><channel>${titles.map(([t, s]) => item(t, s)).join('')}</channel></rss>`;
+
+  it('puts the whole-run release above single episodes that have more seeders', () => {
+    // 実データ（VIVANT, 2026-08-15）: EP13 はシード 85、通しは 6 番目に埋もれていた
+    const results = parseNyaaRss(rss([
+      ['[MagicStar] VIVANT EP13 [WEBDL] [1080p] [JPN_SUB]', 85],
+      ['[MagicStar] VIVANT EP12 [WEBDL] [1080p] [JPN_SUB]', 59],
+      ['[MagicStar] VIVANT [WEBDL] [1080p] [Netflix] [JPN_ENG_CHS_CHT_SUB]', 12],
+    ]));
+
+    expect(results[0].title).toContain('Netflix');
+  });
+
+  it('treats 第NN話 as a single episode too', () => {
+    const results = parseNyaaRss(rss([
+      ['重版出来！ 第3話 720p', 90],
+      ['重版出来 Jyuhan Shuttai complete', 5],
+    ]));
+
+    expect(results[0].title).toContain('complete');
+  });
+
+  it('does not mistake an episode range for a single episode', () => {
+    const results = parseNyaaRss(rss([
+      ['[Group] Some Drama EP05 [1080p]', 90],
+      ['[Group] Some Drama EP01-10 [1080p]', 4],
+    ]));
+
+    expect(results[0].title).toContain('EP01-10');
+  });
+});
+
+describe('untagged releases are ranked by how much they contain', () => {
+  const sized = (title: string, size: string, seeders: number) => `
+    <item>
+      <title>${title}</title>
+      <guid>https://nyaa.si/view/${seeders}11</guid>
+      <nyaa:infoHash>${String(seeders).padStart(2, '0')}${'b'.repeat(38)}</nyaa:infoHash>
+      <nyaa:size>${size}</nyaa:size>
+      <nyaa:seeders>${seeders}</nyaa:seeders>
+      <nyaa:leechers>0</nyaa:leechers>
+      <nyaa:downloads>0</nyaa:downloads>
+      <nyaa:trusted>No</nyaa:trusted>
+      <nyaa:remake>No</nyaa:remake>
+      <nyaa:category>Live Action - Raw</nyaa:category>
+      <pubDate>Sat, 09 Aug 2026 00:00:00 -0000</pubDate>
+    </item>`;
+
+  it('prefers the full run over a same-shaped one-off special', () => {
+    // 実データ（VIVANT, 2026-08-15）: どちらも話数表記が無く、大きさだけが手掛かり
+    const results = parseNyaaRss(
+      `<rss><channel>${
+        sized('[MagicStar] DRUM - VIVANT THE ORIGIN STORY - [WEBDL] [1080p]', '2.4 GiB', 37)
+      }${
+        sized('[MagicStar] VIVANT [WEBDL] [1080p] [Netflix]', '25.3 GiB', 22)
+      }</channel></rss>`,
+    );
+
+    expect(results[0].title).toContain('Netflix');
+  });
+});

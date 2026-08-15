@@ -106,16 +106,24 @@ function buildMagnet(infoHash: string, title: string): string | null {
 }
 
 function releaseScopeScore(title: string): number {
+  // まとめ（通し・シーズン・話数レンジ）。単話判定より先に見る
   if (
     /\b(?:batch|complete)\b/i.test(title)
     || /\bseason\s*\d{1,2}\b/i.test(title)
     || /\bS\d{1,2}\b/i.test(title)
     || /(?:^|[\s[(])\d{1,3}\s*[-~～]\s*\d{1,3}(?=$|[\s)\]])/.test(title)
+    // EP01-10 のようにレンジが EP に密着する書き方（実写でよく使われる）
+    || /\bEP?\s?\d{1,3}\s*[-~～]\s*(?:EP?\s?)?\d{1,3}\b/i.test(title)
+    || /全\d{1,3}話/.test(title)
     || /\bpart\s*1\s*\+\s*part\s*2\b/i.test(title)
   ) return 2;
+  // 単話。日本のドラマは "Title EP13" や "第3話" のように
+  // 区切りなしで話数を付けるため、アニメ用の " - 13" だけでは拾えない
   if (
     /\bS\d{1,2}E\d{1,3}\b/i.test(title)
     || /\s-\s(?:E(?:P)?\s*)?\d{1,3}(?=$|[\s[(])/i.test(title)
+    || /\bEP\s?\d{1,3}\b/i.test(title)
+    || /第\d{1,3}話/.test(title)
   ) return 0;
   return 1;
 }
@@ -150,6 +158,10 @@ function sizeScore(resource: ResourceResult): number {
     if (gib >= 0.2 && gib <= 4) return 3;
     return gib <= 8 ? 2 : 1;
   }
+  // 話数表記が無い候補。1 話分の大きさなら特別編や単発、桁が違えば通しの可能性が高い。
+  // 実データ（VIVANT, 2026-08-15）: 通し 25.3 GiB / 外伝 2.4 GiB / 1 話 1.4 GiB
+  if (gib >= 6) return 3;
+  if (gib >= 3) return 2;
   return 1;
 }
 
