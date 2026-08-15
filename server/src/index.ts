@@ -70,7 +70,10 @@ export async function buildApp(opts: {
     defaultMediaDir: config.defaultMediaDir,
     mediaDirOverridden: config.mediaDirOverride != null,
   });
-  await app.register(jimakuRoutes, { db });
+  await app.register(jimakuRoutes, {
+    db,
+    onSubtitlesResolved: subtitleSync ? () => { void subtitleSync.reconcile(); } : undefined,
+  });
   await app.register(vocabRoutes, { db, appBaseUrl: opts.appBaseUrl ?? config.appBaseUrl });
   const catalog = createAniListCatalog();
   await app.register(catalogRoutes, { client: catalog });

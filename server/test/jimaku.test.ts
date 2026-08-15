@@ -297,3 +297,36 @@ describe('jimaku entry search across anime and drama', () => {
       .resolves.toEqual([{ id: 1, name: 'Anime Entry' }]);
   });
 });
+
+describe('onSubtitlesResolved (シリーズ自動取得のトリガー)', () => {
+  it('fires after a successful pick+download so siblings can auto-sync', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const id = seedMedia(db);
+    const onSubtitlesResolved = vi.fn();
+    const app = Fastify();
+    app.register(jimakuRoutes, { db, clientFactory: () => fakeClient(), onSubtitlesResolved });
+
+    const res = await app.inject({
+      method: 'POST', url: `/api/media/${id}/jimaku/download`, payload: { entryId: 100 },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(onSubtitlesResolved).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fire when the download fails (no entry / no mapping)', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'jimaku_api_key', 'key');
+    const id = seedMedia(db);
+    const onSubtitlesResolved = vi.fn();
+    const app = Fastify();
+    app.register(jimakuRoutes, { db, clientFactory: () => fakeClient(), onSubtitlesResolved });
+
+    // entryId 無し & マッピング無し → NO_ENTRY で失敗
+    const res = await app.inject({ method: 'POST', url: `/api/media/${id}/jimaku/download`, payload: {} });
+
+    expect(res.statusCode).toBe(400);
+    expect(onSubtitlesResolved).not.toHaveBeenCalled();
+  });
+});

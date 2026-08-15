@@ -89,7 +89,7 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 | 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，打开即定位当前句，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
 | AI 深度讲解：D 键，设置页可选 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini；统一输出{翻译/语法结构/表现/语气}，只给原句中出现的日语汉字标读音，解释新增术语不标；按格式版本/服务/模型/句子缓存 | ai/explain.ts |
-| jimaku 字幕匹配：候选选择一次→jimaku_mapping 记住→按 episode 自动下载(.srt优先,跳过压缩包) | jimaku/* |
+| jimaku 字幕匹配：每系列候选选一次→存 jimaku_mapping→**同系列其余集自动下载**（选完立即 reconcile，2.5s 间隔防限流，.srt 优先跳过压缩包）；启动/扫描/watcher 也会补下有映射的缺字幕集 | jimaku/* + sync.ts |
 | 生词本：词/句收藏（带出处+时间戳，去重），详情页显示本地释义、既有 AI 缓存和精准播放链接；一键创建/更新 Anki 的 `tanku Anime` 牌组 | vocab/anki.ts + routes.ts + VocabPage + VocabDetailPage |
 | 观看进度：5 秒一存，暂停/离页补存；重新进入自动恢复，带 `?t=` 的生词链接一次性优先 | misc/routes.ts + playbackPosition.ts + PlayerPage |
 | 动画发现：首页实时显示当前季/上季、学习向 3 部推荐、日/英/罗马字搜索、响应式卡片 | catalog/* + DiscoverPage |
