@@ -122,6 +122,18 @@ External Japanese subtitles are preferred; otherwise the app attempts to extract
 
 The magnet button is also optional. It requires a magnet-capable desktop downloader registered with the operating system. On Windows, install or reconfigure that downloader only with the user's confirmation, and point its save folder at the media directory shown in **Settings** if automatic library pickup is wanted. Prefer H.264 8-bit releases for the broadest browser compatibility; Windows HEVC support varies by OS, hardware, extensions, and browser, so tanku Anime conservatively marks H.265 as needing conversion there.
 
+#### Resource search only shows a "Nyaa で検索" link
+
+The candidate list is fetched by the local server process, not by your browser, and Node.js does not use the system proxy. If nyaa.si (or AniList / Jimaku) is only reachable through a proxy on your network, either turn on your proxy tool's TUN / enhanced mode, or start the app with Node's built-in proxy support (Node 22.21 or later; replace the port with your proxy's port):
+
+```bash
+NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7890 npm start
+```
+
+PowerShell: `$env:NODE_USE_ENV_PROXY = "1"; $env:HTTPS_PROXY = "http://127.0.0.1:7890"; npm start`
+
+How to tell the two cases apart: an error card whose detail reads like `fetch failed (ENOTFOUND)` or a timeout means the server could not reach nyaa.si (the terminal running `npm start` logs the same reason). If the page instead says no candidates were found, the connection is fine and that title simply has no releases in the selected category — try 字幕なし or すべて.
+
 ## Learning controls
 
 The on-screen control chips are clickable as well as keyboard shortcuts.

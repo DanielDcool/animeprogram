@@ -5,11 +5,16 @@ import {
   type ResourceCategory,
   type ResourceProvider,
 } from '../resource/provider.js';
+import { hasJapanese } from '../analyze/romaji.js';
 import { buildSeasonSearchQueries, inferSeasonNumber } from '../resource/season.js';
 import { dramaFeatured, dramaHero, dramaLocalEntry } from './editorial.js';
 
+/** 日本語の入力をリリース側の綴りに寄せる。差し替え可能にしてテストでは実辞書を読まない */
+export type RomajiTransliterator = (text: string) => Promise<string>;
+
 export interface DramaRoutesOpts {
   resources: ResourceProvider;
+  toRomaji?: RomajiTransliterator;
 }
 
 /**
@@ -31,6 +36,20 @@ export async function dramaRoutes(app: FastifyInstance, opts: DramaRoutesOpts) {
       q: query,
     }).toString();
     return url.toString();
+  }
+
+  /**
+   * 検索語を順に試すためのリスト。provider は最初に当たったものを返す。
+   * 翻字に失敗しても検索自体は続ける（辞書の読み込み失敗で検索窓が死なないように）。
+   */
+  async function queryVariants(query: string): Promise<string[]> {
+    if (!opts.toRomaji || !hasJapanese(query)) return [query];
+    try {
+      const romaji = (await opts.toRomaji(query)).trim();
+      return romaji && romaji !== query ? [query, romaji] : [query];
+    } catch {
+      return [query];
+    }
   }
 
   /** Nyaa を引いて候補を返す。失敗時は Nyaa のサイト内検索へ逃がす */
@@ -103,8 +122,10 @@ export async function dramaRoutes(app: FastifyInstance, opts: DramaRoutesOpts) {
         error: 'リソース分類が不正です。',
       });
     }
-    // 入力そのままを 1 本の検索語として使う。作品名を推測して書き換えない。
-    return searchResources(reply, [query], category);
+    // まず入力そのまま。0 件なら読みのローマ字で引き直す。
+    // 実写のリリース名はローマ字表記が多く、日本語の原題では当たらないことがある
+    // （2026-08-15 実測「きのう何食べた」0 件 →「Kinou Nani Tabeta」48 件、全て該当作）。
+    return searchResources(reply, await queryVariants(query), category);
   });
 
   app.get<{

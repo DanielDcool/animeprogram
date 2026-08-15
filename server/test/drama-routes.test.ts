@@ -155,3 +155,46 @@ describe('per-title resource search', () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+describe('japanese input falls back to a romaji spelling', () => {
+  it('tries the typed japanese first, then the romaji reading', async () => {
+    const calls: Call[] = [];
+    const app = Fastify();
+    await app.register(dramaRoutes, {
+      resources: recordingProvider(calls, 1),
+      toRomaji: async () => 'Kinou Nani Tabeta',
+    });
+
+    await app.inject({ method: 'GET', url: '/api/drama/search?q=%E3%81%8D%E3%81%AE%E3%81%86%E4%BD%95%E9%A3%9F%E3%81%B9%E3%81%9F' });
+
+    // provider は先に当たった方を返すので、順序が意味を持つ
+    expect(calls[0].queries).toEqual(['きのう何食べた', 'Kinou Nani Tabeta']);
+  });
+
+  it('does not transliterate a latin query', async () => {
+    const calls: Call[] = [];
+    const app = Fastify();
+    await app.register(dramaRoutes, {
+      resources: recordingProvider(calls, 1),
+      toRomaji: async () => 'should not be used',
+    });
+
+    await app.inject({ method: 'GET', url: '/api/drama/search?q=MIU404' });
+
+    expect(calls[0].queries).toEqual(['MIU404']);
+  });
+
+  it('still searches when the transliterator throws', async () => {
+    const calls: Call[] = [];
+    const app = Fastify();
+    await app.register(dramaRoutes, {
+      resources: recordingProvider(calls, 1),
+      toRomaji: async () => { throw new Error('dictionary missing'); },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/drama/search?q=%E5%AD%A4%E7%8B%AC' });
+
+    expect(res.statusCode).toBe(200);
+    expect(calls[0].queries).toEqual(['孤独']);
+  });
+});

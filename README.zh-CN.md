@@ -120,6 +120,18 @@ AnimeLibrary/Show/Show - 01.ja.srt
 
 magnet 按钮同样是可选功能，需要操作系统已注册支持 magnet 的桌面下载器。在 Windows 上，AI 只有得到用户确认后才能安装或修改下载器；如需自动进入媒体库，应把下载器保存目录设为**设置**页显示的媒体目录。为获得最广泛的浏览器兼容性，请优先选择 H.264 8-bit；Windows 的 HEVC 支持会受系统、硬件、扩展和浏览器影响，因此 tanku Anime 会保守地把 H.265 标记为可能需要转换。
 
+#### 资源搜索只显示「Nyaa で検索」链接
+
+候选列表是由本机的服务进程去抓 nyaa.si 的，不是浏览器；而 Node.js 不会使用系统代理。如果你的网络需要代理才能访问 nyaa.si（或 AniList / Jimaku），要么打开代理软件的 TUN / 增强模式，要么用 Node 内置的代理支持启动（需要 Node 22.21 及以上；端口改成你代理的端口）：
+
+```bash
+NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7890 npm start
+```
+
+PowerShell：`$env:NODE_USE_ENV_PROXY = "1"; $env:HTTPS_PROXY = "http://127.0.0.1:7890"; npm start`
+
+如何区分两种情况：错误卡片的详情类似 `fetch failed (ENOTFOUND)` 或超时，说明服务端连不上 nyaa.si（运行 `npm start` 的终端也会打印同样的原因）；如果页面显示的是「候補が見つかりませんでした」，说明网络正常，只是这部作品在当前分类下没有资源——切到「字幕なし」或「すべて」再试。
+
 ## 学习快捷键
 
 屏幕上的控制按钮可点击，键盘快捷键也可使用。

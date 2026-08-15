@@ -46,7 +46,7 @@ server/src/
                scanner.ts(指定文件/整目录扫描,返回新增ID) watcher.ts(稳定性检测+目录监听+周期对账)
                routes.ts(列表/手动scan/Range流)
     subtitle/  parser.ts(srt+ass→Cue{start,end,text}) routes.ts(句子列表+偏移)
-    analyze/   tokenizer.ts(kuromoji惰性单例) dictionary.ts(JMdict查词)
+    analyze/   tokenizer.ts(kuromoji惰性单例) dictionary.ts(JMdict查词) romaji.ts(かな→ヘボン式,検索語生成)
                jmdict-import.ts(流式导入) routes.ts(/api/analyze)
     ai/        explain.ts(Anthropic / DeepSeek / OpenAI / Gemini API, structured outputs) routes.ts(/api/explain, SQLite缓存)
     jimaku/    client.ts(jimaku.cc API + pickBestFile) service.ts(可复用字幕下载)
@@ -99,7 +99,7 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 | 视觉系统改版：墨黑+米白单色系统，全部颜色/字体/圆角收敛为 index.css `:root` token；标识推导的四构件（方块 10px 圆角 / 选中态底边缺口 / 双横眼 / 短横指示器）贯穿导航、选集、解析面板；播放器字幕使用透明底高对比文字，避免遮挡画面 | index.css + components/BrandMark + App + 各页面 |
 | 开源安装降摩擦：`npm start` 启动预检（Node 22 硬检查、FFmpeg 分级警告、`TANKU_SKIP_PRECHECK=1` 跳过）；`npm run setup:jmdict` 一键下载/解压/导入词典，失败时给手动兜底指引 | scripts/precheck.mjs + scripts/start.mjs + analyze/jmdict-download.ts + server/scripts/setup-jmdict.ts |
 | アニメ/ドラマ 双模式：顶部导航切换，整站在墨黑（アニメ）与米白（ドラマ）两套主题间反转；标识形状不变只反转配色；播放页在两模式下都保持墨黑 | web/src/mode.ts + App.tsx + index.css `[data-mode]` + BrandMark |
-| 日剧发现：按听力难度分级的随包清单 15 部 + 昼顔横幅，零配置可用；清单外的作品用顶部搜索框按关键词直搜 Nyaa | drama/* + DramaDiscoverPage + DramaDetailPage |
+| 日剧发现：按听力难度分级的随包清单 15 部 + 昼顔横幅，零配置可用；清单外的作品用顶部搜索框按关键词直搜 Nyaa，日文输入 0 命中时自动改用罗马字读音重查 | drama/* + analyze/romaji.ts + DramaDiscoverPage |
 | 日剧资源与字幕：Nyaa Live Action 分类（默认 raw）复用既有排序与 magnet 管线；jimaku 候选同时查动画与真人剧库并合并去重 | resource/provider.ts + drama/routes.ts + jimaku/client.ts |
 
 **已验证基线（截至 2026-08-08）**：
@@ -208,6 +208,14 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   会将其全部排除。验证脚本为一次性临时文件，运行后已删除，凭证值未进入任何输出。
 - 2026-08-15：自动测试基线为 server 185 个、web 53 个；两端 `tsc --noEmit` 与 web production build 通过。
   TMDB 侧尚未用真实 token 联调（见 §5）。
+- 2026-08-15：首个外部用户反馈「下载区只显示去 nyaa 网站的链接」，定位为服务端 fetch 到不了 nyaa.si
+  （国内网络 + Node 不走系统代理），并非配置缺失。已落地：`nyaa.ts` 把 undici 的 `cause.code` 并入错误信息
+  （`fetch failed (ENOTFOUND)`）；动画/日剧两条资源路由的 502 增加 `reason` 字段并 `log.warn` 到终端；
+  前端 error 卡片改为说明「是服务器而非浏览器要连 nyaa.si」+ mono 字体的 `NODE_USE_ENV_PROXY` 修复提示 +
+  上游原因；三语 README 与 `docs/AI-SETUP.md` 加入代理排障小节。用 `--import` 预载脚本在隔离端口
+  （3101/5273、临时 DATA_DIR/MEDIA_DIR）把 nyaa.si 伪装成 ENOTFOUND 做了真实浏览器验证：卡片文案、
+  提示与 `詳細: fetch failed (ENOTFOUND)` 全部出现，终端有 level 40 警告行，控制台只有预期的 502；
+  验证用启动配置与临时目录已清理，真实 3001 服务未受影响。
 
 ## 4. 关键决策记录（为什么这么做）
 
@@ -302,6 +310,12 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   （jimaku 按 series→entry 映射、文件名解析要抽集数），为单片加 `/movie/` 分支不划算。
   **续作不单独立项**：`ドラゴン桜2`、`ブラックペアン2`、`VIVANT` S2 在 TMDB 上没有独立 ID，
   都挂在 S1 条目下；本清单保持「一作品一行」，不引入季度字段。
+- **日文搜索 0 命中时自动回退到罗马字读音**（2026-08-15）：Nyaa 实写分类的发布名大量使用罗马字，
+  日文原题可能一条都搜不到。用已有的 kuromoji 取读音，经 `analyze/romaji.ts` 转成ヘボン式，
+  作为第二检索语交给 provider（provider 本就「按顺序试，取第一个非空」）。实测「きのう何食べた」
+  日文 0 件 →「Kinou Nani Tabeta」48 件且全部为该作。翻字失败不影响搜索本身（catch 后只用原输入）。
+  助詞 は/へ/を 按发音拼成 wa/e/o；长音记号丢弃以吸收 グルメ/グールメ 之类的写法差异。
+  页面同时显示「你输入的词」和「实际命中的词」，回退过程对用户可见。
 - **日剧检索优先用罗马字而非日文原题**（2026-08-15 实测）：Nyaa 实写分类里发布组大量使用罗马字命名。
   `アンナチュラル` 0 件 vs `Unnatural` 20 件；`きのう何食べた` 0 件 vs `What Did You Eat Yesterday` 4 件。
   且**当用的是「原题的罗马字转写」而非官方英译**——`We Married as a Job` 0 件、
@@ -315,6 +329,13 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   `anime=true` 与 `anime=false` 并按 entry id 合并去重，单边失败不影响另一边。这样 `media` 表不需要
   kind 字段、不需要新 UI、番剧侧行为零退化——候选本来就是「人工选一次后记住映射」，与合并天然吻合。
 
+- **服务端外呼的代理支持交给 Node 内置开关，不引入 undici 依赖**（2026-08-15）：Node 全局 `fetch`
+  不读系统代理，也不读 `HTTPS_PROXY`，这是国内用户「资源搜索只剩 nyaa 外链」的根因。Node 22.21 起自带
+  `NODE_USE_ENV_PROXY=1` / `--use-env-proxy`（官方文档已核实），能让全局 fetch 走 `HTTP(S)_PROXY`，
+  且 `start.mjs` 原样透传环境变量，因此选择只做文案 + README 指引，不为此加 `undici` 依赖或自写
+  ProxyAgent。代价：Node 22.12–22.20 的用户没有这个开关，只能靠代理软件的 TUN 模式；已在提示中写明版本要求。
+  `start.mjs` 自动补 `NODE_USE_ENV_PROXY=1` 的想法暂不做，等确认新版 Node 用户仍会漏设第二个变量再说。
+
 ## 5. 已知小问题 / 待打磨
 
 - jimaku_mapping.entry_name 存的是 ID 字符串而非作品名（仅备注字段，不影响功能，顺手可修）
@@ -326,7 +347,9 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 - AniList 的作品简介多数是英文，首版不自动翻译；后续需真实使用确认是否值得接入缓存翻译
 - 编辑推荐理由按 AniList ID 本地维护；新季度若没有配置，会自动退化为本季人气前三而无定制理由
 - 新番目录依赖网络与 AniList 可用性；当前只有 10 分钟进程内缓存，服务重启后不会离线保留
-- Nyaa RSS 依赖外网；网络或站点不可用时页面只能显示稳定错误并回退到 Nyaa 站内搜索链接
+- Nyaa RSS 依赖外网；网络或站点不可用时页面只能显示稳定错误并回退到 Nyaa 站内搜索链接。错误卡片会带上
+  上游原因（如 `fetch failed (ENOTFOUND)` / 超时）与 `NODE_USE_ENV_PROXY` 提示，但 Node < 22.21 没有该开关，
+  这类用户只能改用代理软件的 TUN 模式；AniList / jimaku 同样受服务端不走系统代理影响，目前只在文档说明
 - 资源排序只能依据 Nyaa 元数据与标题模式；`trusted` 表示 Nyaa 站内标记，不等于版权许可或文件绝对安全
 - 季度识别依赖标题中的明确标记；没有 `II/S02/Season 2/第2期` 等标记的续作可能被视为第一季，
   后续若真实遇到再引入 AniList 关系链人工校正，不为少数例外先做复杂映射。
