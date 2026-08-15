@@ -106,6 +106,7 @@ describe('drama routes with a tmdb token', () => {
     home: async () => ({
       current: { year: 2026, season: 'SUMMER', items: [drama(11)] },
       previous: { year: 2026, season: 'SPRING', items: [drama(21)] },
+      hero: null,
       featured: [],
       tmdbConfigured: true,
     }),

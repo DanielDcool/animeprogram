@@ -3,6 +3,8 @@ import {
   DRAMA_PICKS,
   dramaEditorialNote,
   dramaFeatured,
+  dramaHero,
+  dramaLocalEntry,
 } from '../src/modules/drama/editorial.js';
 
 describe('drama editorial picks', () => {
@@ -61,5 +63,28 @@ describe('drama picks searchability', () => {
       // 検索語は原題とローマ字の 2 系統になる
       expect(entry?.titleNative).toBe(pick.title);
     }
+  });
+});
+
+describe('drama levels and hero', () => {
+  it('tags every pick with a listening-difficulty level', () => {
+    const levels = new Set(DRAMA_PICKS.map((pick) => pick.level));
+    expect([...levels].every((l) => ['N3', 'N2', 'N1', 'N1+'].includes(l))).toBe(true);
+    // レベルは 1 段階だけでなく、易→難のグラデーションになっていること
+    expect(levels.size).toBeGreaterThanOrEqual(3);
+    expect(dramaFeatured().every((entry) => entry.level != null)).toBe(true);
+  });
+
+  it('exposes a hero that is not duplicated in the grid', () => {
+    const hero = dramaHero();
+    expect(hero.title).toContain('昼顔');
+    expect(DRAMA_PICKS.some((pick) => pick.tmdbId === hero.id)).toBe(false);
+    expect(hero.recommendation?.reason.length).toBeGreaterThan(0);
+  });
+
+  it('resolves both the hero and the picks by id, so detail pages work without tmdb', () => {
+    expect(dramaLocalEntry(dramaHero().id)?.title).toBe(dramaHero().title);
+    expect(dramaLocalEntry(DRAMA_PICKS[0].tmdbId)?.title).toBe(DRAMA_PICKS[0].title);
+    expect(dramaLocalEntry(-1)).toBeNull();
   });
 });

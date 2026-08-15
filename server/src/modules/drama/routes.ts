@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { DramaUpstreamError, type CatalogDrama, type DramaCatalogClient } from './client.js';
-import { dramaFeatured } from './editorial.js';
+import { dramaFeatured, dramaHero, dramaLocalEntry } from './editorial.js';
 import {
   ResourceUpstreamError,
   nyaaCategoryId,
@@ -41,7 +41,7 @@ export async function dramaRoutes(app: FastifyInstance, opts: DramaRoutesOpts) {
    */
   async function resolveDrama(id: number): Promise<CatalogDrama | null> {
     const client = opts.getClient();
-    const local = dramaFeatured().find((pick) => pick.id === id) ?? null;
+    const local = dramaLocalEntry(id);
     if (!client) return local;
     try {
       return (await client.detail(id)) ?? local;
@@ -68,11 +68,12 @@ export async function dramaRoutes(app: FastifyInstance, opts: DramaRoutesOpts) {
   app.get('/api/drama/home', async (_req, reply) => {
     const client = opts.getClient();
     const featured = dramaFeatured();
+    const hero = dramaHero();
     // トークン未設定でもエラーにしない。手書きの厳選リストだけで学習導線は成立する。
     if (!client) {
-      return { current: EMPTY_SEASON, previous: EMPTY_SEASON, featured, tmdbConfigured: false };
+      return { current: EMPTY_SEASON, previous: EMPTY_SEASON, hero, featured, tmdbConfigured: false };
     }
-    return run(reply, async () => ({ ...await client.home(), featured, tmdbConfigured: true }));
+    return run(reply, async () => ({ ...await client.home(), hero, featured, tmdbConfigured: true }));
   });
 
   app.get<{ Querystring: { q?: string } }>('/api/drama/search', async (req, reply) => {

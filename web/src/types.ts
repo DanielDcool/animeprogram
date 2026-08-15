@@ -77,6 +77,7 @@ export interface CatalogHome {
   featured: CatalogAnime[];
 }
 
+export type DramaLevel = 'N3' | 'N2' | 'N1' | 'N1+';
 export interface CatalogDrama {
   id: number;
   title: string;
@@ -92,11 +93,13 @@ export interface CatalogDrama {
   network: string | null;
   links: CatalogLink[];
   recommendation?: { badge: string; reason: string };
+  level?: DramaLevel;
 }
 export interface DramaSeason extends SeasonRef { items: CatalogDrama[] }
 export interface DramaHome {
   current: DramaSeason;
   previous: DramaSeason;
+  hero: CatalogDrama | null;
   featured: CatalogDrama[];
   tmdbConfigured: boolean;
 }

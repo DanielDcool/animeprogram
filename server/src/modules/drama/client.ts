@@ -1,5 +1,5 @@
 import { cleanDescription, getSeasonPair, type SeasonRef } from '../catalog/client.js';
-import { dramaEditorialNote, type DramaEditorialNote } from './editorial.js';
+import { dramaEditorialNote, type DramaEditorialNote, type DramaLevel } from './editorial.js';
 
 export interface DramaLink {
   site: string;
@@ -22,6 +22,8 @@ export interface CatalogDrama {
   network: string | null;
   links: DramaLink[];
   recommendation?: DramaEditorialNote;
+  /** 厳選リストの作品にだけ付く聞き取り難易度の目安。TMDB 由来の作品には無い */
+  level?: DramaLevel;
 }
 
 export interface DramaSeason extends SeasonRef {
@@ -31,6 +33,8 @@ export interface DramaSeason extends SeasonRef {
 export interface DramaHome {
   current: DramaSeason;
   previous: DramaSeason;
+  /** トップの横長スロット。手書きの 1 本を大きく見せる */
+  hero: CatalogDrama | null;
   featured: CatalogDrama[];
   tmdbConfigured: boolean;
 }
@@ -181,7 +185,8 @@ export function createTmdbDramaCatalog(
     async home() {
       const refs = getSeasonPair(now());
       const [current, previous] = await Promise.all([discover(refs.current), discover(refs.previous)]);
-      return { current, previous, featured: [], tmdbConfigured: true };
+      // hero / featured はルート側で手書きリストから差し込む
+      return { current, previous, hero: null, featured: [], tmdbConfigured: true };
     },
 
     async search(query: string) {

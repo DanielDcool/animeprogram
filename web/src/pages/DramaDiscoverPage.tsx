@@ -26,7 +26,10 @@ function DramaCard({ drama }: { drama: CatalogDrama }) {
         <p className="anime-romaji">
           {[airYearLabel(drama.startDate), networkLabel(drama.network)].filter(Boolean).join(' · ')}
         </p>
-        <div className="anime-tags"><span>{statusLabel(drama.status)}</span></div>
+        <div className="anime-tags">
+          {drama.level && <span className="level-tag">{drama.level}</span>}
+          <span>{statusLabel(drama.status)}</span>
+        </div>
       </div>
     </Link>
   );
@@ -150,6 +153,29 @@ export default function DramaDiscoverPage() {
         </section>
       ) : home && (
         <>
+          {home.hero && (
+            <section
+              className="catalog-hero drama-hero"
+              style={home.hero.bannerImage
+                ? { backgroundImage: `linear-gradient(90deg, rgba(251, 250, 247, .98) 0%, rgba(251, 250, 247, .86) 46%, rgba(251, 250, 247, .18) 100%), url("${home.hero.bannerImage}")` }
+                : undefined}
+            >
+              <div className="hero-content">
+                <span className="hero-badge">{home.hero.recommendation?.badge ?? '注目作'}</span>
+                <h2>{home.hero.title}</h2>
+                <p className="hero-romaji">
+                  {[airYearLabel(home.hero.startDate), networkLabel(home.hero.network)].filter(Boolean).join(' · ')}
+                </p>
+                <p className="hero-reason">{home.hero.recommendation?.reason}</p>
+                <div className="hero-meta">
+                  {home.hero.level && <span>目安 {home.hero.level}</span>}
+                  <span>{statusLabel(home.hero.status)}</span>
+                </div>
+                <Link className="primary-link" to={`/drama/${home.hero.id}`}>作品を見る →</Link>
+              </div>
+            </section>
+          )}
+
           <section className="catalog-section editorial-section">
             <div className="section-heading">
               <div><p className="eyebrow">EDITOR'S PICK</p><h2>日本語学習に効くドラマ</h2></div>
@@ -162,7 +188,9 @@ export default function DramaDiscoverPage() {
                   <div className="drama-pick-body">
                     <span className="pick-badge">{drama.recommendation?.badge}</span>
                     <h3>{drama.title}</h3>
-                    <p className="drama-pick-meta">{airYearLabel(drama.startDate)}</p>
+                    <p className="drama-pick-meta">
+                      {[drama.level && `目安 ${drama.level}`, airYearLabel(drama.startDate)].filter(Boolean).join(' · ')}
+                    </p>
                     <p>{drama.recommendation?.reason}</p>
                   </div>
                   {drama.coverImage && (

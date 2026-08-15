@@ -947,3 +947,12 @@ hr { border: 0; border-top: 1px solid var(--border-soft); margin: 26px 0; }
   border-radius: var(--radius-sm);
   background: var(--stripe-cover);
 }
+
+/* ---- ドラマ: 難易度タグと横長ヒーロー ---- */
+.level-tag {
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  border-color: var(--border-strong) !important;
+}
+/* 明るい地の上に置くので、覆いは bone 側のグラデーションになる */
+.drama-hero .hero-reason { max-width: 560px; }
