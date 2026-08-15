@@ -59,9 +59,9 @@ describe('drama picks searchability', () => {
     const featured = dramaFeatured();
     for (const pick of DRAMA_PICKS) {
       const entry = featured.find((item) => item.id === pick.tmdbId);
-      expect(entry?.titleEnglish).toBe(pick.titleRomaji);
+      expect(entry?.titleRomaji).toBe(pick.titleRomaji);
       // 検索語は原題とローマ字の 2 系統になる
-      expect(entry?.titleNative).toBe(pick.title);
+      expect(entry?.title).toBe(pick.title);
     }
   });
 });

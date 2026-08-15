@@ -19,15 +19,19 @@ interface ApiFailure extends Error {
 }
 
 export default function ResourceResults({
-  subjectId,
+  subjectId = 0,
   defaultCategory = 'english',
   fetchResources,
+  autoLoadOn,
 }: {
-  subjectId: number;
+  /** リセットの手掛かり。取得口を差し込む場合は使われない */
+  subjectId?: number;
   /** ドラマは raw が既定（日本のテレビ録画が大半で、英語字幕は学習に不要） */
   defaultCategory?: ResourceCategory;
-  /** 省略時はアニメの取得口。ドラマ詳細ページが自分の取得口を差し込む */
+  /** 省略時はアニメの取得口。ドラマ側が自分の取得口を差し込む */
   fetchResources?: (category: ResourceCategory) => Promise<ResourceSearchResponse>;
+  /** 値が変わるたびに自動で取得する。キーワード検索のように「押す前から結果が要る」場合用 */
+  autoLoadOn?: string;
 }) {
   const [category, setCategory] = useState<ResourceCategory>(defaultCategory);
   const [state, setState] = useState<ResourceViewState>('idle');
@@ -40,6 +44,12 @@ export default function ResourceResults({
     setResult(null);
     setErrorFallback('');
   }, [subjectId, defaultCategory]);
+
+  useEffect(() => {
+    if (autoLoadOn) void load(defaultCategory);
+    // load は毎レンダー作り直されるので依存に入れない（入れると無限ループになる）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoLoadOn]);
 
   async function load(nextCategory = category) {
     setState('loading');

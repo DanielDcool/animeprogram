@@ -1,4 +1,6 @@
-import type { CatalogDrama } from './client.js';
+// ドラマのカタログはこの手書きリストが全て。外部 API は使わない。
+// 作品を増やすときはここに 1 行足してコミットする（利用者は git pull で受け取る）。
+// リストに無い作品は、トップの検索窓から Nyaa をキーワード直引きして辿り着ける。
 
 /** 目安の難易度。JLPT のレベルそのものではなく「聞き取りの重さ」の目安 */
 export type DramaLevel = 'N3' | 'N2' | 'N1' | 'N1+';
@@ -6,6 +8,24 @@ export type DramaLevel = 'N3' | 'N2' | 'N1' | 'N1+';
 export interface DramaEditorialNote {
   badge: string;
   reason: string;
+}
+
+/** 画面に渡す形。null になり続けるだけの項目は持たない */
+export interface CatalogDrama {
+  id: number;
+  title: string;
+  /** リソース検索の第 2 検索語。Nyaa の実写では原題より当たる */
+  titleRomaji: string | null;
+  coverImage: string | null;
+  bannerImage: string | null;
+  startDate: string | null;
+  level: DramaLevel;
+  recommendation: DramaEditorialNote;
+}
+
+export interface DramaHome {
+  hero: CatalogDrama;
+  picks: CatalogDrama[];
 }
 
 export interface DramaPick extends DramaEditorialNote {
@@ -238,25 +258,15 @@ function toCatalogDrama(pick: DramaPick): CatalogDrama {
   return {
     id: pick.tmdbId,
     title: pick.title,
-    // リソース検索は titleNative と titleEnglish の両方を検索語にするので、
-    // ローマ字はここに載せる（Nyaa の実写では原題より当たる）
-    titleEnglish: pick.titleRomaji,
-    titleNative: pick.title,
+    titleRomaji: pick.titleRomaji,
     coverImage: pick.posterUrl,
     bannerImage: pick.backdropUrl,
-    description: '',
-    score: null,
-    episodes: null,
-    status: 'FINISHED',
     startDate: pick.firstAirDate,
-    network: null,
-    links: [],
-    recommendation: { badge: pick.badge, reason: pick.reason },
     level: pick.level,
+    recommendation: { badge: pick.badge, reason: pick.reason },
   };
 }
 
-/** TMDB トークンが無くても表示できる、カタログ形状のエントリ */
 export function dramaFeatured(): CatalogDrama[] {
   return DRAMA_PICKS.map(toCatalogDrama);
 }
@@ -265,7 +275,7 @@ export function dramaHero(): CatalogDrama {
   return toCatalogDrama(DRAMA_HERO);
 }
 
-/** 厳選リストとヒーローを合わせた、ローカルで解決できる全作品 */
+/** 厳選リストとヒーローを合わせた、アプリ内で解決できる全作品 */
 export function dramaLocalEntry(id: number): CatalogDrama | null {
   const pick = NOTES.get(id);
   return pick ? toCatalogDrama(pick) : null;

@@ -41,7 +41,6 @@ export async function miscRoutes(app: FastifyInstance, opts: Opts) {
     openai_api_key_set: getSetting(db, 'openai_api_key') != null,
     gemini_api_key_set: getSetting(db, 'gemini_api_key') != null,
     jimaku_api_key_set: getSetting(db, 'jimaku_api_key') != null,
-    tmdb_api_key_set: getSetting(db, 'tmdb_api_key') != null,
     media_dir: mediaDir,
     default_media_dir: defaultMediaDir,
     media_dir_overridden: mediaDirOverridden,
@@ -70,7 +69,7 @@ export async function miscRoutes(app: FastifyInstance, opts: Opts) {
     if (provider === 'anthropic' || provider === 'deepseek' || provider === 'openai' || provider === 'gemini') {
       setSetting(db, 'ai_provider', provider);
     }
-    for (const key of ['anthropic_api_key', 'deepseek_api_key', 'openai_api_key', 'gemini_api_key', 'ai_model', 'jimaku_api_key', 'tmdb_api_key'] as const) {
+    for (const key of ['anthropic_api_key', 'deepseek_api_key', 'openai_api_key', 'gemini_api_key', 'ai_model', 'jimaku_api_key'] as const) {
       const v = req.body?.[key];
       if (typeof v === 'string' && v !== '') setSetting(db, key, v);
     }

@@ -81,27 +81,16 @@ export type DramaLevel = 'N3' | 'N2' | 'N1' | 'N1+';
 export interface CatalogDrama {
   id: number;
   title: string;
-  titleEnglish: string | null;
-  titleNative: string | null;
+  titleRomaji: string | null;
   coverImage: string | null;
   bannerImage: string | null;
-  description: string;
-  score: number | null;
-  episodes: number | null;
-  status: string;
   startDate: string | null;
-  network: string | null;
-  links: CatalogLink[];
-  recommendation?: { badge: string; reason: string };
-  level?: DramaLevel;
+  level: DramaLevel;
+  recommendation: { badge: string; reason: string };
 }
-export interface DramaSeason extends SeasonRef { items: CatalogDrama[] }
 export interface DramaHome {
-  current: DramaSeason;
-  previous: DramaSeason;
-  hero: CatalogDrama | null;
-  featured: CatalogDrama[];
-  tmdbConfigured: boolean;
+  hero: CatalogDrama;
+  picks: CatalogDrama[];
 }
 
 export type ResourceCategory = 'english' | 'raw' | 'all';

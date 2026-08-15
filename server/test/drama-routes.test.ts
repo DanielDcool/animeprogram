@@ -1,231 +1,156 @@
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
-import { DRAMA_PICKS } from '../src/modules/drama/editorial.js';
+import { DRAMA_PICKS, dramaHero } from '../src/modules/drama/editorial.js';
 import { dramaRoutes } from '../src/modules/drama/routes.js';
 import {
-  DramaUpstreamError,
-  type CatalogDrama,
-  type DramaCatalogClient,
-} from '../src/modules/drama/client.js';
-import type { ResourceProvider, ResourceSearchOptions } from '../src/modules/resource/provider.js';
+  ResourceUpstreamError,
+  type ResourceProvider,
+  type ResourceSearchOptions,
+} from '../src/modules/resource/provider.js';
 
-function drama(id: number): CatalogDrama {
-  return {
-    id,
-    title: 'タイトル',
-    titleEnglish: null,
-    titleNative: 'タイトル',
-    coverImage: null,
-    bannerImage: null,
-    description: 'あらすじ',
-    score: 78,
-    episodes: 10,
-    status: 'FINISHED',
-    startDate: '2026-07-04',
-    network: 'TBS',
-    links: [],
-  };
-}
+interface Call { queries: string[]; category: string; options: ResourceSearchOptions }
 
-function fakeResources(record: { options?: ResourceSearchOptions } = {}): ResourceProvider {
+function recordingProvider(calls: Call[], items = 0): ResourceProvider {
   return {
-    async search(queries, _category, options = {}) {
-      record.options = options;
-      return { items: [], query: queries[0] ?? '' };
+    async search(queries, category, options = {}) {
+      calls.push({ queries, category, options });
+      return {
+        items: Array.from({ length: items }, (_, i) => ({ id: `hash${i}` })) as never,
+        query: queries[0] ?? '',
+      };
     },
   };
 }
 
-const failingDetail = async (): Promise<CatalogDrama | null> => {
-  throw new DramaUpstreamError('TMDB returned 500');
-};
+function failingProvider(): ResourceProvider {
+  return {
+    async search() { throw new ResourceUpstreamError('Nyaa returned 503'); },
+  };
+}
 
-/** TMDB が完全に落ちている状態。トークンは設定済みという前提 */
-const downClient: DramaCatalogClient = {
-  home: async () => { throw new DramaUpstreamError('TMDB returned 500'); },
-  search: async () => { throw new DramaUpstreamError('TMDB returned 500'); },
-  detail: failingDetail,
-};
-
-async function buildTestApp(client: DramaCatalogClient | null, resources = fakeResources()) {
+async function buildTestApp(resources: ResourceProvider) {
   const app = Fastify();
-  await app.register(dramaRoutes, { getClient: () => client, resources });
+  await app.register(dramaRoutes, { resources });
   return app;
 }
 
-describe('drama routes without a tmdb token', () => {
-  it('serves the hand-written picks instead of failing', async () => {
-    const app = await buildTestApp(null);
-
-    const response = await app.inject({ method: 'GET', url: '/api/drama/home' });
-
-    expect(response.statusCode).toBe(200);
-    const body = response.json();
-    expect(body.tmdbConfigured).toBe(false);
-    expect(body.featured.map((item: CatalogDrama) => item.id)).toEqual(DRAMA_PICKS.map((pick) => pick.tmdbId));
-    expect(body.featured[0]).toMatchObject({
-      title: DRAMA_PICKS[0].title,
-      recommendation: { badge: DRAMA_PICKS[0].badge, reason: DRAMA_PICKS[0].reason },
-    });
-    expect(body.current.items).toEqual([]);
-  });
-
-  it('explains that search needs a token', async () => {
-    const app = await buildTestApp(null);
-
-    const response = await app.inject({ method: 'GET', url: '/api/drama/search?q=silent' });
-
-    expect(response.statusCode).toBe(503);
-    expect(response.json().code).toBe('TMDB_NOT_CONFIGURED');
-  });
-
-  it('still resolves a pick detail from the local list', async () => {
-    const app = await buildTestApp(null);
-
-    const response = await app.inject({ method: 'GET', url: `/api/drama/${DRAMA_PICKS[0].tmdbId}` });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({
-      id: DRAMA_PICKS[0].tmdbId,
-      title: DRAMA_PICKS[0].title,
-    });
-  });
-
-  it('404s an unknown drama when nothing local matches', async () => {
-    const app = await buildTestApp(null);
-
-    const response = await app.inject({ method: 'GET', url: '/api/drama/99999999' });
-
-    expect(response.statusCode).toBe(404);
-    expect(response.json().code).toBe('DRAMA_NOT_FOUND');
-  });
-});
-
-describe('drama routes with a tmdb token', () => {
-  const client: DramaCatalogClient = {
-    home: async () => ({
-      current: { year: 2026, season: 'SUMMER', items: [drama(11)] },
-      previous: { year: 2026, season: 'SPRING', items: [drama(21)] },
-      hero: null,
-      featured: [],
-      tmdbConfigured: true,
-    }),
-    search: async () => [drama(31)],
-    detail: async (id) => (id === 11 ? drama(11) : null),
-  };
-
-  it('merges live seasons with the local picks', async () => {
-    const app = await buildTestApp(client);
+describe('drama catalog is the bundled list', () => {
+  it('serves the hero and every pick with no external dependency', async () => {
+    const app = await buildTestApp(recordingProvider([]));
 
     const body = (await app.inject({ method: 'GET', url: '/api/drama/home' })).json();
 
-    expect(body.tmdbConfigured).toBe(true);
-    expect(body.current.items).toHaveLength(1);
-    expect(body.featured.map((item: CatalogDrama) => item.id)).toEqual(DRAMA_PICKS.map((pick) => pick.tmdbId));
+    expect(body.hero.id).toBe(dramaHero().id);
+    expect(body.picks.map((p: { id: number }) => p.id)).toEqual(DRAMA_PICKS.map((p) => p.tmdbId));
+    expect(body.picks[0].recommendation.reason.length).toBeGreaterThan(0);
+    expect(body.picks[0].level).toBe(DRAMA_PICKS[0].level);
   });
 
-  it('falls back to the local pick when tmdb has no record of it', async () => {
-    const app = await buildTestApp(client);
+  it('resolves a pick detail, and the hero too', async () => {
+    const app = await buildTestApp(recordingProvider([]));
 
-    const response = await app.inject({ method: 'GET', url: `/api/drama/${DRAMA_PICKS[0].tmdbId}` });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({
-      id: DRAMA_PICKS[0].tmdbId,
-      title: DRAMA_PICKS[0].title,
-    });
+    for (const id of [DRAMA_PICKS[0].tmdbId, dramaHero().id]) {
+      const res = await app.inject({ method: 'GET', url: `/api/drama/${id}` });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().id).toBe(id);
+    }
   });
 
-  it('falls back to the local pick when tmdb is down', async () => {
-    const app = await buildTestApp({ ...client, detail: failingDetail });
+  it('404s anything outside the bundled list', async () => {
+    const app = await buildTestApp(recordingProvider([]));
 
-    const response = await app.inject({ method: 'GET', url: `/api/drama/${DRAMA_PICKS[0].tmdbId}` });
+    const res = await app.inject({ method: 'GET', url: '/api/drama/99999999' });
 
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ id: DRAMA_PICKS[0].tmdbId });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe('DRAMA_NOT_FOUND');
   });
 
-  it('502s when tmdb is down and the drama is not a local pick', async () => {
-    const app = await buildTestApp({ ...client, detail: failingDetail });
+  it('rejects a malformed id', async () => {
+    const app = await buildTestApp(recordingProvider([]));
 
-    const response = await app.inject({ method: 'GET', url: '/api/drama/99999999' });
+    const res = await app.inject({ method: 'GET', url: '/api/drama/abc' });
 
-    expect(response.statusCode).toBe(502);
-    expect(response.json().code).toBe('DRAMA_UNAVAILABLE');
-  });
-
-  it('rejects a too-short query', async () => {
-    const app = await buildTestApp(client);
-
-    const response = await app.inject({ method: 'GET', url: '/api/drama/search?q=s' });
-
-    expect(response.statusCode).toBe(400);
-    expect(response.json().code).toBe('INVALID_QUERY');
-  });
-
-  it('maps upstream failures to 502', async () => {
-    const app = await buildTestApp({
-      ...client,
-      search: async () => { throw new DramaUpstreamError('TMDB returned 500'); },
-    });
-
-    const response = await app.inject({ method: 'GET', url: '/api/drama/search?q=silent' });
-
-    expect(response.statusCode).toBe(502);
-    expect(response.json().code).toBe('DRAMA_UNAVAILABLE');
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_DRAMA_ID');
   });
 });
 
-describe('drama resource search', () => {
-  it('searches the live action category with the drama kind', async () => {
-    const record: { options?: ResourceSearchOptions } = {};
-    const app = await buildTestApp(null, fakeResources(record));
+describe('keyword search goes straight to nyaa', () => {
+  it('uses the raw live-action category and the typed words verbatim', async () => {
+    const calls: Call[] = [];
+    const app = await buildTestApp(recordingProvider(calls, 3));
 
-    const response = await app.inject({
-      method: 'GET',
-      url: `/api/drama/${DRAMA_PICKS[0].tmdbId}/resources`,
-    });
+    const res = await app.inject({ method: 'GET', url: '/api/drama/search?q=%E3%81%82%E3%81%AE%E5%86%AC' });
 
-    expect(response.statusCode).toBe(200);
-    expect(record.options?.kind).toBe('drama');
-    // ドラマの既定は raw（日本のテレビ録画が主流で、英語字幕は学習に不要）
-    expect(response.json().category).toBe('raw');
-    expect(response.json().externalSearchUrl).toContain('c=4_4');
+    expect(res.statusCode).toBe(200);
+    // 作品名を推測して書き換えない: 入力そのまま 1 本
+    expect(calls[0].queries).toEqual(['あの冬']);
+    expect(calls[0].options.kind).toBe('drama');
+    expect(res.json().category).toBe('raw');
+    expect(res.json().externalSearchUrl).toContain('c=4_4');
   });
 
-  it('keeps searching a pick while tmdb is down', async () => {
-    const record: { options?: ResourceSearchOptions } = {};
-    const app = await buildTestApp(downClient, fakeResources(record));
+  it('honours an explicit category', async () => {
+    const calls: Call[] = [];
+    const app = await buildTestApp(recordingProvider(calls, 1));
 
-    const response = await app.inject({
-      method: 'GET',
-      url: `/api/drama/${DRAMA_PICKS[0].tmdbId}/resources`,
-    });
+    const res = await app.inject({ method: 'GET', url: '/api/drama/search?q=silent&category=english' });
 
-    // Nyaa も jimaku も TMDB を経由しない。TMDB 障害でダウンロード導線を止めない。
-    expect(response.statusCode).toBe(200);
-    expect(record.options?.kind).toBe('drama');
-    expect(response.json().externalSearchUrl).toContain('c=4_4');
+    expect(res.json().category).toBe('english');
+    // 実写の英語字幕は 4_1（アニメの 1_2 相当）。1→4 の置換だと 4_2 になり誤爆する
+    expect(res.json().externalSearchUrl).toContain('c=4_1');
   });
 
-  it('502s while tmdb is down when the drama is not a pick', async () => {
-    const app = await buildTestApp(downClient);
+  it('rejects a too-short query before touching the network', async () => {
+    const calls: Call[] = [];
+    const app = await buildTestApp(recordingProvider(calls));
 
-    const response = await app.inject({ method: 'GET', url: '/api/drama/99999999/resources' });
+    const res = await app.inject({ method: 'GET', url: '/api/drama/search?q=a' });
 
-    expect(response.statusCode).toBe(502);
-    expect(response.json().code).toBe('DRAMA_UNAVAILABLE');
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_QUERY');
+    expect(calls).toHaveLength(0);
   });
 
   it('rejects an unknown category', async () => {
-    const app = await buildTestApp(null);
+    const app = await buildTestApp(recordingProvider([]));
 
-    const response = await app.inject({
-      method: 'GET',
-      url: `/api/drama/${DRAMA_PICKS[0].tmdbId}/resources?category=bogus`,
-    });
+    const res = await app.inject({ method: 'GET', url: '/api/drama/search?q=silent&category=bogus' });
 
-    expect(response.statusCode).toBe(400);
-    expect(response.json().code).toBe('INVALID_RESOURCE_CATEGORY');
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_RESOURCE_CATEGORY');
+  });
+
+  it('falls back to a nyaa site link when nyaa is down', async () => {
+    const app = await buildTestApp(failingProvider());
+
+    const res = await app.inject({ method: 'GET', url: '/api/drama/search?q=silent' });
+
+    expect(res.statusCode).toBe(502);
+    expect(res.json().code).toBe('RESOURCE_UNAVAILABLE');
+    expect(res.json().externalSearchUrl).toContain('nyaa.si');
+  });
+});
+
+describe('per-title resource search', () => {
+  it('searches both the japanese title and the romaji spelling', async () => {
+    const calls: Call[] = [];
+    const app = await buildTestApp(recordingProvider(calls, 2));
+    const pick = DRAMA_PICKS.find((p) => p.titleRomaji && p.titleRomaji !== p.title)!;
+
+    const res = await app.inject({ method: 'GET', url: `/api/drama/${pick.tmdbId}/resources` });
+
+    expect(res.statusCode).toBe(200);
+    expect(calls[0].queries.join(' ')).toContain(pick.title);
+    expect(calls[0].queries.join(' ')).toContain(pick.titleRomaji!);
+    expect(calls[0].options.kind).toBe('drama');
+  });
+
+  it('404s a work outside the bundled list', async () => {
+    const app = await buildTestApp(recordingProvider([]));
+
+    const res = await app.inject({ method: 'GET', url: '/api/drama/99999999/resources' });
+
+    expect(res.statusCode).toBe(404);
   });
 });

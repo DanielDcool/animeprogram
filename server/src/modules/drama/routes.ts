@@ -1,6 +1,4 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { DramaUpstreamError, type CatalogDrama, type DramaCatalogClient } from './client.js';
-import { dramaFeatured, dramaHero, dramaLocalEntry } from './editorial.js';
 import {
   ResourceUpstreamError,
   nyaaCategoryId,
@@ -8,99 +6,98 @@ import {
   type ResourceProvider,
 } from '../resource/provider.js';
 import { buildSeasonSearchQueries, inferSeasonNumber } from '../resource/season.js';
+import { dramaFeatured, dramaHero, dramaLocalEntry } from './editorial.js';
 
 export interface DramaRoutesOpts {
-  /** リクエストごとに解決する。設定画面でトークンを保存した直後から有効になるように */
-  getClient: () => DramaCatalogClient | null;
   resources: ResourceProvider;
 }
 
-const EMPTY_SEASON = { year: 0, season: 'WINTER' as const, items: [] };
+/**
+ * ドラマの既定は raw。日本のテレビ録画が大半で、
+ * 日本語字幕は jimaku から取るので英語字幕は要らない。
+ */
+const DEFAULT_CATEGORY: ResourceCategory = 'raw';
 
-function uniqueTitles(values: Array<string | null>): string[] {
-  return [...new Map(values
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value))
-    .map((value) => [value.toLocaleLowerCase(), value])).values()];
-}
-
-function externalSearchUrl(query: string, category: ResourceCategory): string {
-  const url = new URL('https://nyaa.si/');
-  url.search = new URLSearchParams({ f: '0', c: nyaaCategoryId('drama', category), q: query }).toString();
-  return url.toString();
+function isCategory(value: string): value is ResourceCategory {
+  return value === 'english' || value === 'raw' || value === 'all';
 }
 
 export async function dramaRoutes(app: FastifyInstance, opts: DramaRoutesOpts) {
-  /**
-   * TMDB が落ちていても、厳選リストに載っている作品は詳細も資源検索も止めない。
-   * Nyaa も jimaku も TMDB を経由しないので、TMDB の可用性が
-   * 「このドラマを落として学習できるか」を左右するべきではない。
-   * カタログ側の「AniList 障害は発見ページだけに留め、プレイヤー・単語帳・
-   * ローカル走査は止めない」と同じ原則（docs/DEVELOPMENT.md §4「发现与本地学习分层」）。
-   * 厳選リストに無い作品は代わりが無いので、その場合だけ 502 を投げ直す。
-   */
-  async function resolveDrama(id: number): Promise<CatalogDrama | null> {
-    const client = opts.getClient();
-    const local = dramaLocalEntry(id);
-    if (!client) return local;
-    try {
-      return (await client.detail(id)) ?? local;
-    } catch (error) {
-      if (error instanceof DramaUpstreamError && local) return local;
-      throw error;
-    }
+  function externalUrl(query: string, category: ResourceCategory): string {
+    const url = new URL('https://nyaa.si/');
+    url.search = new URLSearchParams({
+      f: '0',
+      c: nyaaCategoryId('drama', category),
+      q: query,
+    }).toString();
+    return url.toString();
   }
 
-  async function run<T>(reply: FastifyReply, operation: () => Promise<T>) {
+  /** Nyaa を引いて候補を返す。失敗時は Nyaa のサイト内検索へ逃がす */
+  async function searchResources(
+    reply: FastifyReply,
+    queries: string[],
+    category: ResourceCategory,
+    season?: number,
+  ) {
+    const fallbackUrl = externalUrl(queries[0] ?? '', category);
     try {
-      return await operation();
+      const result = await opts.resources.search(queries, category, { season, kind: 'drama' });
+      return {
+        ...result,
+        category,
+        externalSearchUrl: externalUrl(result.query || queries[0] || '', category),
+      };
     } catch (error) {
-      if (error instanceof DramaUpstreamError) {
+      if (error instanceof ResourceUpstreamError) {
         return reply.code(502).send({
-          code: 'DRAMA_UNAVAILABLE',
-          error: 'ドラマ情報を取得できませんでした。しばらくしてから再試行してください。',
+          code: 'RESOURCE_UNAVAILABLE',
+          error: 'ダウンロード候補を取得できませんでした。Nyaa のサイトで検索してください。',
+          externalSearchUrl: fallbackUrl,
         });
       }
       throw error;
     }
   }
 
-  app.get('/api/drama/home', async (_req, reply) => {
-    const client = opts.getClient();
-    const featured = dramaFeatured();
-    const hero = dramaHero();
-    // トークン未設定でもエラーにしない。手書きの厳選リストだけで学習導線は成立する。
-    if (!client) {
-      return { current: EMPTY_SEASON, previous: EMPTY_SEASON, hero, featured, tmdbConfigured: false };
-    }
-    return run(reply, async () => ({ ...await client.home(), hero, featured, tmdbConfigured: true }));
-  });
-
-  app.get<{ Querystring: { q?: string } }>('/api/drama/search', async (req, reply) => {
-    const client = opts.getClient();
-    if (!client) {
-      return reply.code(503).send({
-        code: 'TMDB_NOT_CONFIGURED',
-        error: 'TMDB のトークンを設定すると、すべてのドラマを検索できます。',
-      });
-    }
-    const query = req.query.q?.trim() ?? '';
-    if (Array.from(query).length < 2) {
-      return reply.code(400).send({ code: 'INVALID_QUERY', error: '検索語は2文字以上で入力してください。' });
-    }
-    return run(reply, async () => ({ items: await client.search(query) }));
-  });
+  // カタログは手書きリストのみ。外部 API を持たないので失敗し得ない。
+  app.get('/api/drama/home', async () => ({
+    hero: dramaHero(),
+    picks: dramaFeatured(),
+  }));
 
   app.get<{ Params: { id: string } }>('/api/drama/:id', async (req, reply) => {
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id <= 0) {
       return reply.code(400).send({ code: 'INVALID_DRAMA_ID', error: '作品IDが不正です。' });
     }
-    return run(reply, async () => {
-      const drama = await resolveDrama(id);
-      if (drama) return drama;
+    const drama = dramaLocalEntry(id);
+    if (!drama) {
       return reply.code(404).send({ code: 'DRAMA_NOT_FOUND', error: '作品が見つかりません。' });
-    });
+    }
+    return drama;
+  });
+
+  /**
+   * キーワードで Nyaa の実写カテゴリを直接引く。
+   * 厳選リストに無い作品へ辿り着く唯一の導線なので、作品カタログは経由しない。
+   */
+  app.get<{
+    Querystring: { q?: string; category?: string };
+  }>('/api/drama/search', async (req, reply) => {
+    const query = req.query.q?.trim() ?? '';
+    if (Array.from(query).length < 2) {
+      return reply.code(400).send({ code: 'INVALID_QUERY', error: '検索語は2文字以上で入力してください。' });
+    }
+    const category = req.query.category ?? DEFAULT_CATEGORY;
+    if (!isCategory(category)) {
+      return reply.code(400).send({
+        code: 'INVALID_RESOURCE_CATEGORY',
+        error: 'リソース分類が不正です。',
+      });
+    }
+    // 入力そのままを 1 本の検索語として使う。作品名を推測して書き換えない。
+    return searchResources(reply, [query], category);
   });
 
   app.get<{
@@ -111,47 +108,23 @@ export async function dramaRoutes(app: FastifyInstance, opts: DramaRoutesOpts) {
     if (!Number.isSafeInteger(id) || id <= 0) {
       return reply.code(400).send({ code: 'INVALID_DRAMA_ID', error: '作品IDが不正です。' });
     }
-
-    // ドラマの既定は raw。日本のテレビ録画が大半で、英語字幕は日本語学習に不要。
-    const category = req.query.category ?? 'raw';
-    if (category !== 'english' && category !== 'raw' && category !== 'all') {
+    const category = req.query.category ?? DEFAULT_CATEGORY;
+    if (!isCategory(category)) {
       return reply.code(400).send({
         code: 'INVALID_RESOURCE_CATEGORY',
         error: 'リソース分類が不正です。',
       });
     }
-
-    let fallbackUrl = '';
-    try {
-      const source = await resolveDrama(id);
-      if (!source) {
-        return reply.code(404).send({ code: 'DRAMA_NOT_FOUND', error: '作品が見つかりません。' });
-      }
-      const titles = uniqueTitles([source.titleNative ?? source.title, source.titleEnglish]);
-      const season = inferSeasonNumber(titles);
-      const queries = buildSeasonSearchQueries(titles, season);
-      fallbackUrl = externalSearchUrl(queries[0] ?? '', category);
-      const result = await opts.resources.search(queries, category, { season, kind: 'drama' });
-      return {
-        ...result,
-        category,
-        externalSearchUrl: externalSearchUrl(result.query || queries[0] || '', category),
-      };
-    } catch (error) {
-      if (error instanceof DramaUpstreamError) {
-        return reply.code(502).send({
-          code: 'DRAMA_UNAVAILABLE',
-          error: 'ドラマ情報を取得できませんでした。しばらくしてから再試行してください。',
-        });
-      }
-      if (error instanceof ResourceUpstreamError) {
-        return reply.code(502).send({
-          code: 'RESOURCE_UNAVAILABLE',
-          error: 'ダウンロード候補を取得できませんでした。Nyaa のサイトで検索してください。',
-          externalSearchUrl: fallbackUrl,
-        });
-      }
-      throw error;
+    const drama = dramaLocalEntry(id);
+    if (!drama) {
+      return reply.code(404).send({ code: 'DRAMA_NOT_FOUND', error: '作品が見つかりません。' });
     }
+    // 原題とローマ字の 2 系統を検索語にする（Nyaa の実写ではローマ字の方が当たる）
+    const titles = [...new Map([drama.title, drama.titleRomaji]
+      .map((value) => value?.trim())
+      .filter((value): value is string => Boolean(value))
+      .map((value) => [value.toLocaleLowerCase(), value])).values()];
+    const season = inferSeasonNumber(titles);
+    return searchResources(reply, buildSeasonSearchQueries(titles, season), category, season);
   });
 }

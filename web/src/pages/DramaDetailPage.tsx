@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import ResourceResults from '../catalog/ResourceResults';
-import { scoreLabel, statusLabel } from '../catalog/view';
-import { networkLabel } from '../drama/view';
 import type { CatalogDrama } from '../types';
 
 export default function DramaDetailPage() {
@@ -26,9 +24,6 @@ export default function DramaDetailPage() {
   }
   if (!drama) return <main className="detail-state">作品情報を読み込んでいます…</main>;
 
-  const streaming = drama.links.filter((link) => link.type === 'STREAMING');
-  const information = drama.links.filter((link) => link.type === 'INFO');
-
   return (
     <main className="anime-detail">
       {/* 背景画像が無いときは大きな空帯にせず、戻る導線だけの細い帯に縮める */}
@@ -45,37 +40,16 @@ export default function DramaDetailPage() {
           <div className="detail-cover">
             {drama.coverImage && <img src={drama.coverImage} alt={`${drama.title}のカバー`} onError={(event) => { event.currentTarget.style.display = 'none'; }} />}
           </div>
-          {/* TMDB 未設定時やダウン時は厳選リストの最小情報だけになるため、
-              各項目は「無ければ出さない」で組む */}
           <dl className="detail-facts">
-            {drama.score != null && <div><dt>評価</dt><dd>{scoreLabel(drama.score)}</dd></div>}
-            <div><dt>状態</dt><dd>{statusLabel(drama.status)}</dd></div>
-            {drama.episodes != null && <div><dt>話数</dt><dd>{drama.episodes}話</dd></div>}
-            {drama.network && <div><dt>放送局</dt><dd>{networkLabel(drama.network)}</dd></div>}
+            <div><dt>目安</dt><dd>{drama.level}</dd></div>
             {drama.startDate && <div><dt>放送開始</dt><dd>{drama.startDate}</dd></div>}
           </dl>
         </aside>
         <article className="detail-main">
-          {drama.recommendation && <span className="hero-badge">{drama.recommendation.badge}</span>}
+          <span className="hero-badge">{drama.recommendation.badge}</span>
           <h1>{drama.title}</h1>
-          {drama.titleEnglish && drama.titleEnglish !== drama.title && (
-            <p className="detail-english">{drama.titleEnglish}</p>
-          )}
-          {drama.recommendation && <blockquote className="recommendation-note">{drama.recommendation.reason}</blockquote>}
-
-          <section className="detail-section">
-            <p className="eyebrow">STORY</p><h2>作品紹介</h2>
-            <p className="detail-description">
-              {drama.description || 'TMDB のトークンを設定すると、日本語のあらすじが表示されます。'}
-            </p>
-          </section>
-
-          <section className="detail-section resource-section">
-            <p className="eyebrow">OFFICIAL LINKS</p><h2>公式で見る・調べる</h2>
-            {streaming.length > 0 && <div className="resource-group"><h3>配信サービス</h3><div className="resource-links">{streaming.map((link) => <a href={link.url} target="_blank" rel="noreferrer" key={`${link.site}-${link.url}`}>{link.site}<span>↗</span></a>)}</div></div>}
-            {information.length > 0 && <div className="resource-group"><h3>公式情報</h3><div className="resource-links">{information.map((link) => <a href={link.url} target="_blank" rel="noreferrer" key={`${link.site}-${link.url}`}>{link.site}<span>↗</span></a>)}</div></div>}
-            {drama.links.length === 0 && <p className="muted-copy">配信リンクは未取得です。TMDB のトークンを設定すると、日本での配信先を確認できます。</p>}
-          </section>
+          {drama.titleRomaji && <p className="detail-english">{drama.titleRomaji}</p>}
+          <blockquote className="recommendation-note">{drama.recommendation.reason}</blockquote>
 
           <ResourceResults
             subjectId={drama.id}
@@ -90,7 +64,7 @@ export default function DramaDetailPage() {
         </article>
       </div>
       <footer className="catalog-footer">
-        作品データ：TMDB。本製品は TMDB の API を利用していますが、TMDB による推奨・認証を受けたものではありません。
+        作品リストはこのアプリに同梱の手書きです。ポスター画像は TMDB のものを参照しています。
       </footer>
     </main>
   );
