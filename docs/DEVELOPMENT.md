@@ -100,7 +100,7 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 | 视觉系统改版：墨黑+米白单色系统，全部颜色/字体/圆角收敛为 index.css `:root` token；标识推导的四构件（方块 10px 圆角 / 选中态底边缺口 / 双横眼 / 短横指示器）贯穿导航、选集、解析面板；播放器字幕使用透明底高对比文字，避免遮挡画面 | index.css + components/BrandMark + App + 各页面 |
 | 开源安装降摩擦：`npm start` 启动预检（Node 22 硬检查、FFmpeg 分级警告、`TANKU_SKIP_PRECHECK=1` 跳过）；`npm run setup:jmdict` 一键下载/解压/导入词典，失败时给手动兜底指引 | scripts/precheck.mjs + scripts/start.mjs + analyze/jmdict-download.ts + server/scripts/setup-jmdict.ts |
 | アニメ/ドラマ 双模式：顶部导航切换，整站在墨黑（アニメ）与米白（ドラマ）两套主题间反转；标识形状不变只反转配色；播放页在两模式下都保持墨黑 | web/src/mode.ts + App.tsx + index.css `[data-mode]` + BrandMark |
-| 日剧发现：手写学习向精选 8 部（无 TMDB token 也能用），配 token 后加当季/上季クール一览与全量搜索；详情页含日语简介、电视台、JP 区配信入口 | drama/* + DramaDiscoverPage + DramaDetailPage |
+| 日剧发现：按听力难度分级的手写精选 15 部 + 昼顔横幅（无 TMDB token 也能用，海报走 TMDB CDN 直链），配 token 后加当季/上季クール一览与全量搜索；详情页含日语简介、电视台、JP 区配信入口 | drama/* + DramaDiscoverPage + DramaDetailPage |
 | 日剧资源与字幕：Nyaa Live Action 分类（默认 raw）复用既有排序与 magnet 管线；jimaku 候选同时查动画与真人剧库并合并去重 | resource/provider.ts + drama/routes.ts + jimaku/client.ts |
 
 **已验证基线（截至 2026-08-08）**：

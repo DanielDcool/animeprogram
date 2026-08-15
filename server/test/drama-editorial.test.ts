@@ -88,3 +88,16 @@ describe('drama levels and hero', () => {
     expect(dramaLocalEntry(-1)).toBeNull();
   });
 });
+
+describe('drama artwork', () => {
+  it('gives every pick and the hero a poster hot-linked from the tmdb cdn', () => {
+    for (const pick of [...DRAMA_PICKS, dramaHero()]) {
+      const url = 'posterUrl' in pick ? pick.posterUrl : pick.coverImage;
+      expect(url).toMatch(/^https:\/\/image\.tmdb\.org\/t\/p\/w500\/[\w-]+\.jpg$/);
+    }
+  });
+
+  it('gives the hero a wide backdrop, because a portrait poster cannot fill the banner slot', () => {
+    expect(dramaHero().bannerImage).toMatch(/^https:\/\/image\.tmdb\.org\/t\/p\/w1280\/[\w-]+\.jpg$/);
+  });
+});

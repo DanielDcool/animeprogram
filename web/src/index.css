@@ -882,8 +882,14 @@ hr { border: 0; border-top: 1px solid var(--border-soft); margin: 26px 0; }
 }
 
 @media (max-width: 580px) {
-  .topnav { padding: 0 15px; gap: 12px; overflow: hidden; }
-  .nav-links { gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  /* モード切替が入った分、1 行では収まらない。
+     1 段目に 標識 + モード切替、2 段目にナビリンクを回す */
+  .topnav {
+    flex-wrap: wrap; height: auto; padding: 10px 15px; gap: 12px; row-gap: 8px;
+    overflow: hidden;
+  }
+  .topnav .mode-switch { margin-left: auto; }
+  .nav-links { flex-basis: 100%; gap: 2px; overflow-x: auto; scrollbar-width: none; }
   .nav-links::-webkit-scrollbar { display: none; }
   .nav-links a { padding: 8px 10px; }
   .discover-intro h1 { font-size: 36px; }
