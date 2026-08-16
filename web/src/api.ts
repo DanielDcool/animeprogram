@@ -56,6 +56,7 @@ export const api = {
   exportVocabToAnki: () => request('/api/vocab/export-anki', { method: 'POST' }).then((r) => j<AnkiExportResult>(r)),
   getSettings: () => request('/api/settings').then((r) => j<{
     ai_provider: 'anthropic' | 'deepseek' | 'openai' | 'gemini'; ai_model: string;
+    explain_language: 'auto' | 'zh' | 'en'; explain_language_detected: 'zh' | 'en';
     anthropic_api_key_set: boolean; deepseek_api_key_set: boolean; openai_api_key_set: boolean;
     gemini_api_key_set: boolean;
     jimaku_api_key_set: boolean;

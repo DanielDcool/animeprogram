@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { getSetting, setSetting, type Db } from '../../db.js';
+import { detectExplainLanguage, parseExplainLanguage, systemLocale } from '../ai/language.js';
 
 interface Opts {
   db: Db;
@@ -33,9 +34,12 @@ export async function miscRoutes(app: FastifyInstance, opts: Opts) {
     return { positionSec: row?.position_sec ?? 0 };
   });
 
-  app.get('/api/settings', async () => ({
+  app.get('/api/settings', async (req) => ({
     ai_provider: getAiProvider(),
     ai_model: getSetting(db, 'ai_model') ?? 'claude-opus-4-8',
+    // 'auto' はブラウザ / OS の言語に従う。detected は auto のときに実際に使われる言語
+    explain_language: parseExplainLanguage(getSetting(db, 'explain_language')) ?? 'auto',
+    explain_language_detected: detectExplainLanguage(req.headers['accept-language'], systemLocale()),
     anthropic_api_key_set: getSetting(db, 'anthropic_api_key') != null,
     deepseek_api_key_set: getSetting(db, 'deepseek_api_key') != null,
     openai_api_key_set: getSetting(db, 'openai_api_key') != null,
@@ -72,6 +76,10 @@ export async function miscRoutes(app: FastifyInstance, opts: Opts) {
     for (const key of ['anthropic_api_key', 'deepseek_api_key', 'openai_api_key', 'gemini_api_key', 'ai_model', 'jimaku_api_key'] as const) {
       const v = req.body?.[key];
       if (typeof v === 'string' && v !== '') setSetting(db, key, v);
+    }
+    const explainLanguage = req.body?.explain_language;
+    if (explainLanguage === 'auto' || parseExplainLanguage(explainLanguage)) {
+      setSetting(db, 'explain_language', explainLanguage);
     }
     return { ok: true };
   });

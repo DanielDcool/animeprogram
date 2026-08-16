@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 
 type AiProvider = 'anthropic' | 'deepseek' | 'openai' | 'gemini';
+type ExplainLanguage = 'auto' | 'zh' | 'en';
+
+const LANGUAGE_LABELS: Record<'zh' | 'en', string> = { zh: '中文', en: 'English' };
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   anthropic: 'claude-opus-4-8',
@@ -20,6 +23,8 @@ export default function SettingsPage() {
   const [jimakuKeySet, setJimakuKeySet] = useState(false);
   const [jimakuKey, setJimakuKey] = useState('');
   const [model, setModel] = useState('claude-opus-4-8');
+  const [explainLanguage, setExplainLanguage] = useState<ExplainLanguage>('auto');
+  const [detectedLanguage, setDetectedLanguage] = useState<'zh' | 'en'>('en');
   const [mediaDir, setMediaDir] = useState('');
   const [activeMediaDir, setActiveMediaDir] = useState('');
   const [defaultMediaDir, setDefaultMediaDir] = useState('');
@@ -41,6 +46,8 @@ export default function SettingsPage() {
       setGeminiKeySet(s.gemini_api_key_set);
       setJimakuKeySet(s.jimaku_api_key_set);
       setModel(s.ai_model);
+      setExplainLanguage(s.explain_language);
+      setDetectedLanguage(s.explain_language_detected);
       setMediaDir(s.media_dir);
       setActiveMediaDir(s.media_dir);
       setDefaultMediaDir(s.default_media_dir);
@@ -56,7 +63,7 @@ export default function SettingsPage() {
   useEffect(() => { void load(); }, []);
 
   async function save() {
-    const payload: Record<string, string> = { ai_provider: provider, ai_model: model };
+    const payload: Record<string, string> = { ai_provider: provider, ai_model: model, explain_language: explainLanguage };
     if (apiKey) payload[`${provider}_api_key`] = apiKey;
     if (jimakuKey) payload.jimaku_api_key = jimakuKey;
     if (!mediaDirOverridden) payload.media_dir = mediaDir.trim();
@@ -137,6 +144,18 @@ export default function SettingsPage() {
         <label>AI モデル<br />
           <input value={model} onChange={(e) => setModel(e.target.value)} style={{ width: 360 }} />
         </label>
+      </p>
+      <p>
+        <label>AI 解説の言語<br />
+          <select value={explainLanguage} onChange={(e) => setExplainLanguage(e.target.value as ExplainLanguage)}>
+            <option value="auto">自動（システム言語: {LANGUAGE_LABELS[detectedLanguage]}）</option>
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+      </p>
+      <p className="settings-help">
+        「自動」はブラウザ / OS の言語設定に従います。中国語以外の環境では英語で解説します。
       </p>
       </section>
       <hr />

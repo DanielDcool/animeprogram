@@ -109,6 +109,8 @@ New cards use `APP_BASE_URL` (default: `http://localhost:5173`) for playback lin
 
 In **設定 / Settings**, choose Anthropic, DeepSeek, OpenAI, or Google Gemini and enter that provider's API key. Keys and explanation cache are stored only in the local SQLite database; do not commit keys or the `server/data/` directory.
 
+Explanations are written in Chinese or English. By default the language follows your browser / OS language (Chinese for `zh-*`, otherwise English); you can pin either language under **AI 解説の言語** in Settings.
+
 OpenAI requires an [OpenAI Platform API key](https://platform.openai.com/api-keys). A ChatGPT or Codex subscription by itself is not an API key.
 
 ### Drama listings and search (TMDB)

@@ -139,4 +139,35 @@ describe('settings', () => {
     expect(body.gemini_api_key_set).toBe(true);
     expect(body.gemini_api_key).toBeUndefined();
   });
+
+  it('reports the explain language as auto plus the language detected from the browser', async () => {
+    const { app } = makeApp();
+
+    const zh = await app.inject({ url: '/api/settings', headers: { 'accept-language': 'zh-CN,zh;q=0.9' } });
+    const en = await app.inject({ url: '/api/settings', headers: { 'accept-language': 'en-US,en;q=0.9' } });
+
+    expect(zh.json()).toMatchObject({ explain_language: 'auto', explain_language_detected: 'zh' });
+    expect(en.json()).toMatchObject({ explain_language: 'auto', explain_language_detected: 'en' });
+  });
+
+  it('stores an explicit explain language and lets auto clear it again', async () => {
+    const { app, db } = makeApp();
+
+    await app.inject({ method: 'PUT', url: '/api/settings', payload: { explain_language: 'en' } });
+    const fixed = await app.inject({ url: '/api/settings', headers: { 'accept-language': 'zh-CN' } });
+    expect(fixed.json()).toMatchObject({ explain_language: 'en', explain_language_detected: 'zh' });
+    expect(db.prepare('SELECT value FROM settings WHERE key=?').pluck().get('explain_language')).toBe('en');
+
+    await app.inject({ method: 'PUT', url: '/api/settings', payload: { explain_language: 'auto' } });
+    const auto = await app.inject({ url: '/api/settings', headers: { 'accept-language': 'zh-CN' } });
+    expect(auto.json()).toMatchObject({ explain_language: 'auto' });
+  });
+
+  it('ignores unsupported explain languages', async () => {
+    const { app, db } = makeApp();
+
+    await app.inject({ method: 'PUT', url: '/api/settings', payload: { explain_language: 'ja' } });
+
+    expect(db.prepare('SELECT value FROM settings WHERE key=?').pluck().get('explain_language')).toBeUndefined();
+  });
 });

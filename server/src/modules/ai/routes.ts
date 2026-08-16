@@ -10,8 +10,10 @@ import {
   type Explanation,
   type ExplainClient,
 } from './explain.js';
+import { resolveExplainLanguage } from './language.js';
 
-const EXPLANATION_FORMAT_VERSION = 'source-furigana-v3';
+// キャッシュキーの形式版。言語をキーに含めるようになったので v4（旧 v3 の結果は再生成される）
+const EXPLANATION_FORMAT_VERSION = 'explain-lang-v4';
 type AiProvider = 'anthropic' | 'deepseek' | 'openai' | 'gemini';
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
@@ -51,7 +53,11 @@ export async function aiRoutes(app: FastifyInstance, opts: Opts) {
 
     const provider = getProvider(db);
     const model = getSetting(db, 'ai_model') ?? DEFAULT_MODELS[provider];
-    const hash = crypto.createHash('sha256').update(`${EXPLANATION_FORMAT_VERSION}:${provider}:${model}:${text}`).digest('hex');
+    // 設定で固定されていなければブラウザの言語（≒ OS の言語）に従う
+    const language = resolveExplainLanguage(getSetting(db, 'explain_language'), req.headers['accept-language']);
+    const hash = crypto.createHash('sha256')
+      .update(`${EXPLANATION_FORMAT_VERSION}:${provider}:${model}:${language}:${text}`)
+      .digest('hex');
     const cached = db.prepare('SELECT response_json FROM explain_cache WHERE sentence_hash=?').get(hash) as any;
     if (cached) return { cached: true, explanation: JSON.parse(cached.response_json) };
 
@@ -59,7 +65,7 @@ export async function aiRoutes(app: FastifyInstance, opts: Opts) {
     if (!apiKey) return reply.code(503).send({ code: 'AI_NOT_CONFIGURED', error: 'AI API key not set (settings page)' });
 
     try {
-      const input = { text, context: req.body.context ?? [] };
+      const input = { text, context: req.body.context ?? [], language };
       let explanation: Explanation;
       if (provider === 'deepseek') {
         explanation = await explainSentenceWithDeepSeek(apiKey, model, input, deepseekFetch);

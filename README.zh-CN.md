@@ -107,6 +107,8 @@ npm run setup:jmdict
 
 在 **設定 / Settings** 中选择 Anthropic、DeepSeek、OpenAI 或 Google Gemini，并输入该服务的 API key。密钥和讲解缓存只储存在本机 SQLite 数据库；请勿提交密钥或 `server/data/` 目录。
 
+讲解语言支持中文和英文。默认跟随浏览器 / 系统语言（`zh-*` 为中文，其余为英文）；也可以在设置页的 **AI 解説の言語** 中固定为其中一种。
+
 OpenAI 需要 [OpenAI Platform API key](https://platform.openai.com/api-keys)；仅有 ChatGPT 或 Codex 订阅并不能充当 API key。
 
 ### 日剧一览与搜索（TMDB）

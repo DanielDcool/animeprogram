@@ -26,15 +26,35 @@ function fakeClient(): ExplainClient {
 describe('explainSentence', () => {
   it('parses structured response', async () => {
     const client = fakeClient();
-    const result = await explainSentence(client, 'claude-opus-4-8', { text: 'それでも、あたしはあんたのことが好きなんだよ', context: [] });
+    const result = await explainSentence(client, 'claude-opus-4-8', { text: 'それでも、あたしはあんたのことが好きなんだよ', context: [], language: 'zh' });
     expect(result.translation).toContain('喜欢');
     expect((client.messages.create as any).mock.calls[0][0].model).toBe('claude-opus-4-8');
     const system = (client.messages.create as any).mock.calls[0][0].system as string;
+    expect(system).toContain('中国語話者');
+    expect(system).toContain('解説は中国語で書き');
     expect(system).toContain('解説対象の台詞に含まれる日本語の漢字だけ');
     expect(system).toContain('一発（いっぱつ）');
     expect(system).toContain('名詞、動詞、仮定形、推量');
     expect(system).toContain('読み仮名を付けない');
     expect(system).not.toContain('毎回読み仮名を添え');
+    const schema = (client.messages.create as any).mock.calls[0][0].output_config.format.schema;
+    expect(schema.properties.translation.description).toContain('中文');
+  });
+
+  it('writes the explanation in English when language is en', async () => {
+    const client = fakeClient();
+    await explainSentence(client, 'claude-opus-4-8', { text: 'それでも、あたしはあんたのことが好きなんだよ', context: [], language: 'en' });
+    const request = (client.messages.create as any).mock.calls[0][0];
+    const system = request.system as string;
+    expect(system).toContain('英語話者');
+    expect(system).toContain('解説は英語で書き');
+    expect(system).not.toContain('中国語');
+    // 読み仮名ルールは言語に関係なく共通
+    expect(system).toContain('解説対象の台詞に含まれる日本語の漢字だけ');
+    expect(system).toContain('一発（いっぱつ）');
+    expect(system).toContain('読み仮名を付けない');
+    expect(request.output_config.format.schema.properties.translation.description).toContain('English');
+    expect(request.output_config.format.schema.properties.translation.description).not.toContain('中文');
   });
 });
 
@@ -56,10 +76,40 @@ describe('POST /api/explain', () => {
     expect((client.messages.create as any).mock.calls.length).toBe(1);
   });
 
-  it('regenerates explanations cached under the broad furigana policy', async () => {
+  it('follows the browser Accept-Language when no explain language is set', async () => {
     const db = createDb(':memory:');
     setSetting(db, 'anthropic_api_key', 'sk-test');
-    const oldHash = crypto.createHash('sha256').update('furigana-v2:anthropic:claude-opus-4-8:テスト文').digest('hex');
+    const client = fakeClient();
+    const app = Fastify();
+    app.register(aiRoutes, { db, clientFactory: () => client });
+
+    await app.inject({ method: 'POST', url: '/api/explain', payload: { text: 'テスト文' }, headers: { 'accept-language': 'en-US,en;q=0.9' } });
+    await app.inject({ method: 'POST', url: '/api/explain', payload: { text: 'テスト文' }, headers: { 'accept-language': 'zh-CN,zh;q=0.9' } });
+
+    const calls = (client.messages.create as any).mock.calls;
+    // 言語ごとに別キャッシュ: 同じ文でも 2 回呼ばれる
+    expect(calls).toHaveLength(2);
+    expect(calls[0][0].system).toContain('解説は英語で書き');
+    expect(calls[1][0].system).toContain('解説は中国語で書き');
+  });
+
+  it('explicit explain_language setting overrides the browser language', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'anthropic_api_key', 'sk-test');
+    setSetting(db, 'explain_language', 'zh');
+    const client = fakeClient();
+    const app = Fastify();
+    app.register(aiRoutes, { db, clientFactory: () => client });
+
+    await app.inject({ method: 'POST', url: '/api/explain', payload: { text: 'テスト文' }, headers: { 'accept-language': 'en-US' } });
+
+    expect((client.messages.create as any).mock.calls[0][0].system).toContain('解説は中国語で書き');
+  });
+
+  it('regenerates explanations cached under the language-less key', async () => {
+    const db = createDb(':memory:');
+    setSetting(db, 'anthropic_api_key', 'sk-test');
+    const oldHash = crypto.createHash('sha256').update('source-furigana-v3:anthropic:claude-opus-4-8:テスト文').digest('hex');
     db.prepare('INSERT INTO explain_cache (sentence_hash, sentence_text, response_json) VALUES (?,?,?)')
       .run(oldHash, 'テスト文', JSON.stringify(EXPLANATION));
     const client = fakeClient();

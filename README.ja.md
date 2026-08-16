@@ -107,6 +107,8 @@ Anki でアドオンコード `2055492159` を使って [AnkiConnect](https://gi
 
 **設定 / Settings** で Anthropic、DeepSeek、OpenAI、Google Gemini を選び、そのプロバイダーの API key を入力します。キーと解説キャッシュはローカルの SQLite データベースだけに保存されます。キーや `server/data/` ディレクトリをコミットしないでください。
 
+解説は中国語または英語で出力されます。既定ではブラウザ / OS の言語に従い（`zh-*` なら中国語、それ以外は英語）、設定の **AI 解説の言語** でどちらかに固定することもできます。
+
 OpenAI には [OpenAI Platform API key](https://platform.openai.com/api-keys) が必要です。ChatGPT または Codex のサブスクリプションだけでは API key にはなりません。
 
 ### ドラマの一覧と検索（TMDB）

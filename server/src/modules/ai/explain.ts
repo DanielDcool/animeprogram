@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
+import type { ExplainLanguage } from './language.js';
 
 // テストで差し替えられるよう、使用する最小インターフェースだけに依存する
 export type ExplainClient = Pick<Anthropic, 'messages'>;
@@ -10,33 +11,86 @@ export interface Explanation {
   nuance: string;
 }
 
-const SCHEMA = {
-  type: 'object',
-  properties: {
-    translation: { type: 'string', description: '整句中文翻译' },
-    structure: { type: 'string', description: '语法结构拆解（中文说明）' },
-    expressions: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          expression: { type: 'string' },
-          meaning: { type: 'string' },
-        },
-        required: ['expression', 'meaning'],
-        additionalProperties: false,
-      },
-      description: '句中的句型/惯用表达及说明',
+export interface ExplainInput {
+  text: string;
+  context: string[];
+  language: ExplainLanguage;
+}
+
+interface LanguageProfile {
+  /** 解説を読む学習者（システムプロンプト用、日本語で記述） */
+  audience: string;
+  /** 解説の記述言語（システムプロンプト用、日本語で記述） */
+  outputLanguage: string;
+  /** その言語自身の漢字に読み仮名を付けない、という追加ルール（漢字を使う言語のみ） */
+  extraFuriganaRule: string;
+  /** JSON Schema の各フィールド説明 */
+  fields: { translation: string; structure: string; expressions: string; nuance: string };
+}
+
+const PROFILES: Record<ExplainLanguage, LanguageProfile> = {
+  zh: {
+    audience: '中国語話者',
+    outputLanguage: '中国語',
+    extraFuriganaRule: '中国語そのものの漢字にも読み仮名を付けません。',
+    fields: {
+      translation: '整句中文翻译',
+      structure: '语法结构拆解（中文说明）',
+      expressions: '句中的句型/惯用表达及说明',
+      nuance: '语气、语境、使用场合',
     },
-    nuance: { type: 'string', description: '语气、语境、使用场合' },
   },
-  required: ['translation', 'structure', 'expressions', 'nuance'],
-  additionalProperties: false,
-} as const;
+  en: {
+    audience: '英語話者',
+    outputLanguage: '英語',
+    extraFuriganaRule: '',
+    fields: {
+      translation: 'Full English translation of the line',
+      structure: 'Grammar structure breakdown (explained in English)',
+      expressions: 'Sentence patterns / idiomatic expressions in the line, with explanations',
+      nuance: 'Tone, register, and the situations where it is used',
+    },
+  },
+};
 
-const SYSTEM = `あなたは日本語教師です。アニメの台詞を、日本語を勉強している中国語話者（N1レベル）向けに解説します。解説は中国語で書き、文法用語は必要に応じて日本語を併記してください。読み仮名の対象は、解説対象の台詞に含まれる日本語の漢字だけです。その語を解説内で日本語として引用・提示するときは、直後に読み仮名を全角括弧で添えてください。例：原文に「一発」があれば「一発（いっぱつ）」と書きます。原文にない漢字を含む日本語、特に説明のために追加した名詞、動詞、仮定形、推量などの文法用語や品詞名には読み仮名を付けないでください。中国語そのものの漢字にも読み仮名を付けません。`;
+export function buildSchema(language: ExplainLanguage) {
+  const { fields } = PROFILES[language];
+  return {
+    type: 'object',
+    properties: {
+      translation: { type: 'string', description: fields.translation },
+      structure: { type: 'string', description: fields.structure },
+      expressions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            expression: { type: 'string' },
+            meaning: { type: 'string' },
+          },
+          required: ['expression', 'meaning'],
+          additionalProperties: false,
+        },
+        description: fields.expressions,
+      },
+      nuance: { type: 'string', description: fields.nuance },
+    },
+    required: ['translation', 'structure', 'expressions', 'nuance'],
+    additionalProperties: false,
+  } as const;
+}
 
-function makeUserPrompt(input: { text: string; context: string[] }): string {
+export function buildSystemPrompt(language: ExplainLanguage): string {
+  const profile = PROFILES[language];
+  return `あなたは日本語教師です。アニメの台詞を、日本語を勉強している${profile.audience}（N1レベル）向けに解説します。`
+    + `解説は${profile.outputLanguage}で書き、文法用語は必要に応じて日本語を併記してください。`
+    + '読み仮名の対象は、解説対象の台詞に含まれる日本語の漢字だけです。その語を解説内で日本語として引用・提示するときは、直後に読み仮名を全角括弧で添えてください。'
+    + '例：原文に「一発」があれば「一発（いっぱつ）」と書きます。'
+    + '原文にない漢字を含む日本語、特に説明のために追加した名詞、動詞、仮定形、推量などの文法用語や品詞名には読み仮名を付けないでください。'
+    + profile.extraFuriganaRule;
+}
+
+function makeUserPrompt(input: ExplainInput): string {
   const contextBlock = input.context.length
     ? `前後の台詞（文脈参考用）:\n${input.context.join('\n')}\n\n`
     : '';
@@ -50,14 +104,14 @@ function parseExplanation(text: string): Explanation {
 export async function explainSentence(
   client: ExplainClient,
   model: string,
-  input: { text: string; context: string[] },
+  input: ExplainInput,
 ): Promise<Explanation> {
   const response = await client.messages.create({
     model,
     max_tokens: 2048,
     thinking: { type: 'adaptive' },
-    system: SYSTEM,
-    output_config: { format: { type: 'json_schema', schema: SCHEMA as any } },
+    system: buildSystemPrompt(input.language),
+    output_config: { format: { type: 'json_schema', schema: buildSchema(input.language) as any } },
     messages: [
       { role: 'user', content: makeUserPrompt(input) },
     ],
@@ -73,7 +127,7 @@ export async function explainSentence(
 export async function explainSentenceWithDeepSeek(
   apiKey: string,
   model: string,
-  input: { text: string; context: string[] },
+  input: ExplainInput,
   fetchFn: typeof fetch = fetch,
 ): Promise<Explanation> {
   const response = await fetchFn('https://api.deepseek.com/chat/completions', {
@@ -87,7 +141,7 @@ export async function explainSentenceWithDeepSeek(
       messages: [
         {
           role: 'system',
-          content: `${SYSTEM}\n必ず JSON オブジェクトだけを返してください。形式例: {"translation":"...","structure":"...","expressions":[{"expression":"...","meaning":"..."}],"nuance":"..."}`,
+          content: `${buildSystemPrompt(input.language)}\n必ず JSON オブジェクトだけを返してください。形式例: {"translation":"...","structure":"...","expressions":[{"expression":"...","meaning":"..."}],"nuance":"..."}`,
         },
         { role: 'user', content: makeUserPrompt(input) },
       ],
@@ -103,7 +157,7 @@ export async function explainSentenceWithDeepSeek(
 export async function explainSentenceWithOpenAI(
   apiKey: string,
   model: string,
-  input: { text: string; context: string[] },
+  input: ExplainInput,
   fetchFn: typeof fetch = fetch,
 ): Promise<Explanation> {
   const response = await fetchFn('https://api.openai.com/v1/responses', {
@@ -112,14 +166,14 @@ export async function explainSentenceWithOpenAI(
     body: JSON.stringify({
       model,
       max_output_tokens: 2048,
-      instructions: SYSTEM,
+      instructions: buildSystemPrompt(input.language),
       input: makeUserPrompt(input),
       text: {
         format: {
           type: 'json_schema',
           name: 'japanese_explanation',
           strict: true,
-          schema: SCHEMA,
+          schema: buildSchema(input.language),
         },
       },
     }),
@@ -138,7 +192,7 @@ export async function explainSentenceWithOpenAI(
 export async function explainSentenceWithGemini(
   apiKey: string,
   model: string,
-  input: { text: string; context: string[] },
+  input: ExplainInput,
   fetchFn: typeof fetch = fetch,
 ): Promise<Explanation> {
   const response = await fetchFn('https://generativelanguage.googleapis.com/v1beta/interactions', {
@@ -147,13 +201,13 @@ export async function explainSentenceWithGemini(
     body: JSON.stringify({
       model,
       input: makeUserPrompt(input),
-      system_instruction: SYSTEM,
+      system_instruction: buildSystemPrompt(input.language),
       store: false,
       generation_config: { max_output_tokens: 4096, thinking_level: 'low' },
       response_format: {
         type: 'text',
         mime_type: 'application/json',
-        schema: SCHEMA,
+        schema: buildSchema(input.language),
       },
     }),
   });

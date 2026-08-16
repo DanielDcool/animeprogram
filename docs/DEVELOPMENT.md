@@ -71,7 +71,7 @@ web/src/
 
 SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jimaku_mapping, subtitle_sync_state, vocab`
 （settings 存 `ai_provider` / `anthropic_api_key` / `deepseek_api_key` / `openai_api_key` / `gemini_api_key` /
-`jimaku_api_key` / `ai_model` / `media_dir`，凭证值不得进入日志、测试或文档）。
+`jimaku_api_key` / `ai_model` / `explain_language`(auto|zh|en) / `media_dir`，凭证值不得进入日志、测试或文档）。
 settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 
 ## 3. 已完成功能
@@ -87,7 +87,7 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 | 播放器同目录选集：列出当前物理目录中的可播放视频，提供上一话、下一话与直接选集；切集时重置字幕、学习句和讲解状态 | PlayerPage + episodeNavigation.ts |
 | 右侧面板双 Tab：解析（分词chip+词卡+AI讲解）/ 字幕一覧（T 键，打开即定位当前句，点句=SELECT跳转+暂停+解析） | AnalysisPanel / TranscriptList |
 | 本地分析：kuromoji 分词+变形还原，JMdict 查词（需手动导入，见 README） | analyze/* |
-| AI 深度讲解：D 键，设置页可选 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini；统一输出{翻译/语法结构/表现/语气}，只给原句中出现的日语汉字标读音，解释新增术语不标；按格式版本/服务/模型/句子缓存 | ai/explain.ts |
+| AI 深度讲解：D 键，设置页可选 Anthropic、DeepSeek、OpenAI（Codex / GPT）或 Google Gemini；统一输出{翻译/语法结构/表现/语气}，只给原句中出现的日语汉字标读音，解释新增术语不标；讲解语言中/英二选一，默认按浏览器 `Accept-Language`（→ 服务器 OS locale → en）自动判定，设置页可固定；按格式版本/服务/模型/语言/句子缓存 | ai/explain.ts + ai/language.ts |
 | jimaku 字幕匹配：每系列候选选一次→存 jimaku_mapping→**同系列其余集自动下载**（选完立即 reconcile，2.5s 间隔防限流，.srt 优先跳过压缩包）；启动/扫描/watcher 也会补下有映射的缺字幕集 | jimaku/* + sync.ts |
 | 生词本：词/句收藏（带出处+时间戳，去重），详情页显示本地释义、既有 AI 缓存和精准播放链接；一键创建/更新 Anki 的 `tanku Anime` 牌组 | vocab/anki.ts + routes.ts + VocabPage + VocabDetailPage |
 | 观看进度：5 秒一存，暂停/离页补存；重新进入自动恢复，带 `?t=` 的生词链接一次性优先 | misc/routes.ts + playbackPosition.ts + PlayerPage |
@@ -216,6 +216,15 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   （3101/5273、临时 DATA_DIR/MEDIA_DIR）把 nyaa.si 伪装成 ENOTFOUND 做了真实浏览器验证：卡片文案、
   提示与 `詳細: fetch failed (ENOTFOUND)` 全部出现，终端有 level 40 警告行，控制台只有预期的 502；
   验证用启动配置与临时目录已清理，真实 3001 服务未受影响。
+- 2026-08-16：AI 讲解语言支持中文 / 英文（不做日文——学日语的人不需要日文讲解）。此前 system prompt
+  和 JSON Schema 描述硬编码「中国語話者向け、解説は中国語で」，英文用户拿到的仍是中文。现在
+  `ai/explain.ts` 按语言模板化 prompt/schema（读音规则两种语言共用），新增 `ai/language.ts` 纯函数：
+  设置 `explain_language`（zh/en）优先，未设或 `auto` 时按请求 `Accept-Language` 判定——取偏好列表里
+  **第一个 zh 或 en**（`ja,zh-CN` 判成 zh，照顾日文 OS 的中文用户），都没有再看服务器 OS locale，最后
+  兜底 en。`/api/settings` 返回 `explain_language` + `explain_language_detected`，设置页新增「AI 解説の言語：
+  自動（システム言語: …）/ 中文 / English」。缓存 key 加入语言并把格式版本升到 `explain-lang-v4`，
+  旧 `source-furigana-v3` 结果会重新生成（生词本里已存的讲解不受影响）。测试：language 纯函数 10 个、
+  路由按 Accept-Language 分缓存 / 设置覆盖各 1 个、settings 三个；浏览器实测设置页下拉保存并刷新后保留。
 
 ## 4. 关键决策记录（为什么这么做）
 
