@@ -6,6 +6,16 @@
 
 > 中文：一个本地优先的日语学习播放器，覆盖动画与日剧。先听、再暂停看当前句、分词查词和按需 AI 讲解，最后保存到生词本复习。
 
+![The tanku Anime player paused on a line, with the sentence tokenized and an AI explanation open](docs/images/player.png)
+
+*Paused on the line you missed. The sentence is tokenized, the word you click shows its reading and JMdict entry, and the optional AI breakdown covers translation, grammar, phrasing, and tone.*
+
+| Find something to watch | Review what you saved |
+| --- | --- |
+| ![Discover page showing the current season](docs/images/discover.png) | ![Vocabulary page with saved words and sentences](docs/images/vocab.png) |
+
+*Screenshots use the bundled demo media, not copyrighted video.*
+
 tanku Anime is an early-stage, self-hosted web app. Your media files stay on your computer; the app does not host, proxy, or download video.
 
 ## What you can do
