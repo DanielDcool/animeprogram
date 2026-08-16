@@ -1,6 +1,7 @@
-// ドラマのカタログはこの手書きリストが全て。外部 API は使わない。
+// トップページのカタログはこの手書きリストが全て。トークン等の設定は要らない。
 // 作品を増やすときはここに 1 行足してコミットする（利用者は git pull で受け取る）。
-// リストに無い作品は、トップの検索窓から Nyaa をキーワード直引きして辿り着ける。
+// リストに無い作品は、トップの検索窓から Bangumi（bangumi.ts）を引き、
+// それでも無ければ Nyaa をキーワード直引きして辿り着ける。
 
 /** 目安の難易度。JLPT のレベルそのものではなく「聞き取りの重さ」の目安 */
 export type DramaLevel = 'N3' | 'N2' | 'N1' | 'N1+';
@@ -10,17 +11,29 @@ export interface DramaEditorialNote {
   reason: string;
 }
 
-/** 画面に渡す形。null になり続けるだけの項目は持たない */
+/** どこから来た作品か。id の名前空間が違う（厳選は TMDB id、検索結果は Bangumi subject id） */
+export type DramaSource = 'editorial' | 'bangumi';
+
+/** 画面に渡す形。厳選と Bangumi の検索結果が同じ形で並べられるようにする */
 export interface CatalogDrama {
   id: number;
+  source: DramaSource;
   title: string;
   /** リソース検索の第 2 検索語。Nyaa の実写では原題より当たる */
   titleRomaji: string | null;
+  /** リソース検索に回す追加の検索語（Bangumi の別名のうちラテン文字のもの） */
+  titleAliases: string[];
   coverImage: string | null;
   bannerImage: string | null;
   startDate: string | null;
-  level: DramaLevel;
-  recommendation: DramaEditorialNote;
+  description: string | null;
+  /** 0–10（Bangumi）。厳選は null */
+  score: number | null;
+  episodes: number | null;
+  network: string | null;
+  /** 厳選リスト由来の項目。検索結果でも同名の厳選があれば載る */
+  level?: DramaLevel;
+  recommendation?: DramaEditorialNote;
 }
 
 export interface DramaHome {
@@ -257,14 +270,32 @@ export function dramaEditorialNote(id: number): DramaEditorialNote | undefined {
 function toCatalogDrama(pick: DramaPick): CatalogDrama {
   return {
     id: pick.tmdbId,
+    source: 'editorial',
     title: pick.title,
     titleRomaji: pick.titleRomaji,
+    titleAliases: [],
     coverImage: pick.posterUrl,
     bannerImage: pick.backdropUrl,
     startDate: pick.firstAirDate,
+    description: null,
+    score: null,
+    episodes: null,
+    network: null,
     level: pick.level,
     recommendation: { badge: pick.badge, reason: pick.reason },
   };
+}
+
+function titleKey(title: string): string {
+  return title.replace(/\s+/g, '').toLocaleLowerCase();
+}
+
+const BY_TITLE = new Map([...DRAMA_PICKS, DRAMA_HERO].map((pick) => [titleKey(pick.title), pick]));
+
+/** 検索結果と同名の厳選があれば返す。難易度と推薦文、リリース側の綴りを検索結果に載せるため */
+export function dramaEditorialByTitle(title: string): CatalogDrama | null {
+  const pick = BY_TITLE.get(titleKey(title));
+  return pick ? toCatalogDrama(pick) : null;
 }
 
 export function dramaFeatured(): CatalogDrama[] {

@@ -72,12 +72,19 @@ export const api = {
     request(`/api/catalog/anime/${id}/resources?category=${encodeURIComponent(category)}`)
       .then((r) => j<ResourceSearchResponse>(r)),
   dramaHome: () => request('/api/drama/home').then((r) => j<DramaHome>(r)),
-  /** キーワードで Nyaa の実写カテゴリを直接引く（作品カタログは経由しない） */
+  /** キーワードで Bangumi の作品カタログを引く */
+  dramaSearch: (query: string) =>
+    request(`/api/drama/search?q=${encodeURIComponent(query)}`).then((r) => j<{ items: CatalogDrama[] }>(r)),
+  /** キーワードで Nyaa の実写カテゴリを直接引く（作品カタログは経由しない）。「もっと探す」用 */
   dramaSearchResources: (query: string, category: ResourceCategory) =>
-    request(`/api/drama/search?q=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`)
+    request(`/api/drama/search/resources?q=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`)
       .then((r) => j<ResourceSearchResponse>(r)),
   dramaDetail: (id: number) => request(`/api/drama/${id}`).then((r) => j<CatalogDrama>(r)),
   dramaResources: (id: number, category: ResourceCategory) =>
     request(`/api/drama/${id}/resources?category=${encodeURIComponent(category)}`)
+      .then((r) => j<ResourceSearchResponse>(r)),
+  dramaBangumiDetail: (id: number) => request(`/api/drama/bgm/${id}`).then((r) => j<CatalogDrama>(r)),
+  dramaBangumiResources: (id: number, category: ResourceCategory) =>
+    request(`/api/drama/bgm/${id}/resources?category=${encodeURIComponent(category)}`)
       .then((r) => j<ResourceSearchResponse>(r)),
 };

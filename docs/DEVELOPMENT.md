@@ -8,7 +8,7 @@
 > アニメ/ドラマ 双模式见 `docs/superpowers/specs/2026-08-14-drama-mode-design.md` 与对应 plan
 > （注意：该 spec 的 CSS 工作量估算与降级分支在实施中被修正，以本文件 §4 为准）。
 >
-> 最后校对：2026-08-15。
+> 最后校对：2026-08-16。
 
 ## 0. 如何使用这份文档
 
@@ -30,7 +30,7 @@
 内容分**アニメ**与**ドラマ（日剧）**两个模式，顶部导航切换，整站视觉随之在墨黑与米白之间反转。
 日剧只覆盖日语作品：现代口语、职场与日常场景，比动画更贴近真实工作日语——这是把它纳入的唯一理由，
 不做通用影视数据库。两个模式共用同一条学习管线（扫描 / remux / 播放器 / 分词 / 词典 / AI 讲解 / 生词本），
-差异只在目录来源（AniList 实时 vs 随包手写清单）、Nyaa 分类和 jimaku 检索范围。
+差异只在目录来源（AniList 实时 vs 随包手写清单 + Bangumi 关键词检索）、Nyaa 分类和 jimaku 检索范围。
 
 ## 2. 架构总览
 
@@ -53,7 +53,8 @@ server/src/
                sync.ts(持久状态+去重串行自动取得) routes.ts(candidates/download)
     catalog/   client.ts(AniList GraphQL + normalize + 10分钟缓存)
                editorial.ts(本地学习向推荐理由) routes.ts(/api/catalog/*)
-    drama/     editorial.ts(手写日剧清单=唯一目录源,含类型定义) routes.ts(/api/drama/*,含关键词直搜)
+    drama/     editorial.ts(手写日剧清单=首页唯一内容,含 CatalogDrama 类型) bangumi.ts(Bangumi 检索/详情客户端,免 key,10分钟缓存)
+               routes.ts(/api/drama/*: 精选 /:id、Bangumi /search 与 /bgm/:id、Nyaa 直搜 /search/resources)
     resource/  provider.ts(统一资源类型 + ContentKind + Nyaa分类表) nyaa.ts(RSS解析/排序/5分钟缓存)
                routes.ts(/api/catalog/anime/:id/resources)
     vocab/     anki.ts(AnkiConnect客户端+卡片格式/去重) routes.ts(收藏 CRUD + 一键导出)
@@ -65,7 +66,7 @@ web/src/
                          LibraryPage / PlayerPage / VocabPage / SettingsPage
   catalog/               view.ts（季度/状态/评分）resourceView.ts（资源显示纯函数）
                          ResourceResults.tsx（Nyaa 候选与 magnet 交接，取数可注入）
-  drama/                 view.ts（放送年ラベル）
+  drama/                 view.ts（放送年 / Bangumi 评分 / 卡片副行 / 详情路径 纯函数）
   player/                learningMode.ts(纯reducer,核心状态机) AnalysisPanel / TranscriptList / SubtitleOverlay
 ```
 
@@ -99,8 +100,8 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 | 视觉系统改版：墨黑+米白单色系统，全部颜色/字体/圆角收敛为 index.css `:root` token；标识推导的四构件（方块 10px 圆角 / 选中态底边缺口 / 双横眼 / 短横指示器）贯穿导航、选集、解析面板；播放器字幕使用透明底高对比文字，避免遮挡画面 | index.css + components/BrandMark + App + 各页面 |
 | 开源安装降摩擦：`npm start` 启动预检（Node 22 硬检查、FFmpeg 分级警告、`TANKU_SKIP_PRECHECK=1` 跳过）；`npm run setup:jmdict` 一键下载/解压/导入词典，失败时给手动兜底指引 | scripts/precheck.mjs + scripts/start.mjs + analyze/jmdict-download.ts + server/scripts/setup-jmdict.ts |
 | アニメ/ドラマ 双模式：顶部导航切换，整站在墨黑（アニメ）与米白（ドラマ）两套主题间反转；标识形状不变只反转配色；播放页在两模式下都保持墨黑 | web/src/mode.ts + App.tsx + index.css `[data-mode]` + BrandMark |
-| 日剧发现：按听力难度分级的随包清单 15 部 + 昼顔横幅，零配置可用；清单外的作品用顶部搜索框按关键词直搜 Nyaa，日文输入 0 命中时自动改用罗马字读音重查 | drama/* + analyze/romaji.ts + DramaDiscoverPage |
-| 日剧资源与字幕：Nyaa Live Action 分类（默认 raw）复用既有排序与 magnet 管线；jimaku 候选同时查动画与真人剧库并合并去重 | resource/provider.ts + drama/routes.ts + jimaku/client.ts |
+| 日剧发现：按听力难度分级的随包清单 15 部 + 昼顔横幅，零配置可用；顶部搜索框查 Bangumi（免 key，只留 `platform=日剧`），结果为海报/评分/话数/电视台的作品卡片，同名精选自动并入难度与推荐理由；卡片下方「もっと探す（Nyaa で直接検索）」展开关键词直搜 Nyaa（0 命中或 Bangumi 不可用时自动展开），日文输入 0 命中时自动改用罗马字读音重查 | drama/bangumi.ts + drama/routes.ts + analyze/romaji.ts + DramaDiscoverPage |
+| 日剧详情与资源：`/drama/:id`（精选）与 `/drama/bgm/:id`（Bangumi，含日文简介/评分/放送局）共用一页；Nyaa Live Action 分类（默认全部）复用既有排序与 magnet 管线，Bangumi 条目用原题 + 拉丁别名（无别名则罗马字读音）检索；jimaku 候选同时查动画与真人剧库并合并去重 | DramaDetailPage + resource/provider.ts + drama/routes.ts + jimaku/client.ts |
 
 **已验证基线（截至 2026-08-08）**：
 
@@ -207,7 +208,7 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   `半沢直樹` 返回 2 条、`Unnatural` 1 条，均为 `anilist_id` 为空的真人剧条目——改动前 `anime=true`
   会将其全部排除。验证脚本为一次性临时文件，运行后已删除，凭证值未进入任何输出。
 - 2026-08-15：自动测试基线为 server 185 个、web 53 个；两端 `tsc --noEmit` 与 web production build 通过。
-  TMDB 侧尚未用真实 token 联调（见 §5）。
+  （TMDB 依赖已于同日移除，见 §4「日剧检索目录用 Bangumi」。）
 - 2026-08-15：首个外部用户反馈「下载区只显示去 nyaa 网站的链接」，定位为服务端 fetch 到不了 nyaa.si
   （国内网络 + Node 不走系统代理），并非配置缺失。已落地：`nyaa.ts` 把 undici 的 `cause.code` 并入错误信息
   （`fetch failed (ENOTFOUND)`）；动画/日剧两条资源路由的 502 增加 `reason` 字段并 `log.warn` 到终端；
@@ -225,6 +226,14 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   自動（システム言語: …）/ 中文 / English」。缓存 key 加入语言并把格式版本升到 `explain-lang-v4`，
   旧 `source-furigana-v3` 结果会重新生成（生词本里已存的讲解不受影响）。测试：language 纯函数 10 个、
   路由按 Accept-Language 分缓存 / 设置覆盖各 1 个、settings 三个；浏览器实测设置页下拉保存并刷新后保留。
+- 2026-08-16：**ドラマ搜索改为 Bangumi 作品卡片**（用户反馈：直接跳下载列表不如アニメ侧有图有简介）。
+  用真实 `api.bgm.tv`（无凭证）实测：`白い` → 8 部日剧卡片（白い春 7.7 / 白い巨塔 2003 9.3 / 白い刑事 評価なし…），
+  1966 电影版《白い巨塔》与 `呪怨` 电影被 `platform` 过滤或标为 1 話；`半沢直樹` 命中 2013 / 2020 两条并自动并入
+  精选的 `N2 · 硬い敬語` 与 `Hanzawa Naoki`。海报 `lain.bgm.tv` 直连 200。浏览器实测：卡片网格 → 点「白い巨塔」
+  `/drama/bgm/2600` 显示 評価 9.3 / 21 話 / フジテレビ / 作品紹介（该条简介为中文，Bangumi 数据如此）→
+  资源区可搜；返回后点「もっと探す」展开 Nyaa 直搜得 20 条；`zzqqxxyy` 0 命中 → 空文案 + 直搜自动展开。
+  精选详情 `/drama/68786` 不变。控制台无 error，全程未播放媒体。自动测试基线为 server 246 个、web 56 个；
+  两端 `tsc --noEmit` 与 web production build 通过。
 
 ## 4. 关键决策记录（为什么这么做）
 
@@ -347,6 +356,16 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   `anime=true` 与 `anime=false` 并按 entry id 合并去重，单边失败不影响另一边。这样 `media` 表不需要
   kind 字段、不需要新 UI、番剧侧行为零退化——候选本来就是「人工选一次后记住映射」，与合并天然吻合。
 
+- **日剧检索目录用 Bangumi，而不是恢复 TMDB 或抓 Wikipedia**（2026-08-16）：08-15 去掉 TMDB 后搜索框只剩 Nyaa
+  直搜，用户要求恢复「有海报有简介」的作品卡片。约束是**不能再要 token**（去 TMDB 就是为了零配置）。实测三个
+  免 key 候选：Bangumi `POST /v0/search/subjects`（type=6 三次元）有日文原题、海报直链、0–10 评分、话数、
+  `platform` 字段（`日剧`/`电影`/…可直接过滤）、infobox 里的拉丁别名（如 `UNNATURAL`，正好是 Nyaa 命中率
+  最高的检索词）与电视台，且大量简介就是官方日文文案；日文 Wikipedia 有日文简介但海报几乎全缺、搜索噪音大；
+  TVmaze 日文标题基本搜不到。代价：Bangumi 是社区库，冷门老剧可能缺、部分简介为中文。Bangumi id 与精选的
+  TMDB id 是两个名字空间，因此走独立前缀 `/api/drama/bgm/:id`、`/drama/bgm/:id`，精选路由与清单一行未动；
+  搜索命中与精选同名时并入 `level`/`recommendation`/`titleRomaji`。Bangumi API 要求可识别的 User-Agent，
+  客户端固定发 `tanku-anime/<version> (<repo url>)`。数据仍只做 10 分钟进程内缓存，不入库、不进仓库。
+
 - **服务端外呼的代理支持交给 Node 内置开关，不引入 undici 依赖**（2026-08-15）：Node 全局 `fetch`
   不读系统代理，也不读 `HTTPS_PROXY`，这是国内用户「资源搜索只剩 nyaa 外链」的根因。Node 22.21 起自带
   `NODE_USE_ENV_PROXY=1` / `--use-env-proxy`（官方文档已核实），能让全局 fetch 走 `HTTP(S)_PROXY`，
@@ -382,11 +401,11 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   12–14 秒附近可复现，字幕列表会看到少量重复句。当前保留源时间轴，后续应在真实使用确认后再做安全去重。
 - OpenAI 提供商已用注入的 HTTP 响应完成路由回归测试，但尚未用用户真实 OpenAI Platform key 生成过讲解；
   配置后应完成一次 D 键实弹联调，再决定是否需要调整默认模型或输出 token 上限。
-- **TMDB 侧全部路径尚未用真实 token 联调**：客户端、路由、降级分支都只有注入 fake 的测试覆盖。
-  配置 token 后需实测：当季/上季クール一览、日剧搜索、详情页的日语简介与 JP 区配信入口。
-- 精选清单的 `posterUrl` 目前全部为 `null`，封面显示为 `--stripe-cover` 底纹。配好 TMDB token 后运行
-  `TMDB_TOKEN=<token> npx tsx scripts/resolve-drama-picks.ts`（在 `server/` 下）取得海报 URL 并回填
-  `drama/editorial.ts`。脚本按已核实的 tmdbId 取详情，不按剧名搜索，避免命中同名剧或特别篇。
+- Bangumi 检索的已知取舍：`platform` 只留 `日剧`，因此 Bangumi 归到「电影」的特别篇/剧场版不会出现在卡片里
+  （仍可用「もっと探す」直搜）；部分条目简介为中文、`network` 为中文台名（如 `关西电视台`）；同一部剧的
+  不同季在 Bangumi 是独立条目（`半沢直樹` 2013 / 2020 各一条），同名精选的难度与推荐理由会同时并入两条。
+  Bangumi 资源检索词顺序为「原题 → 拉丁别名」，与精选一致，因此原题能搜到分集时不会再试别名下的整季包
+  （与上一条 `アンナチュラル` 的限制同源）。
 - 精选清单的 15 条推荐理由与难度分级是协作方起草的初稿，**尚未经 Daniel 定稿**。作品选择来自他提供的
   参考合集，但每条的 `badge` / `reason` / `level` 都应由他按自己的学习判断复核。
 - `GTO` 在 TMDB 上有 1998 真人版（62057）、1999 动画版（43017）、2012 版（46127）与 2026 复活版（325022）；
@@ -472,7 +491,7 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
 ## 7. 开发约定
 
 - **TDD**：纯逻辑（解析、状态机、文件挑选、路由）先写 vitest 测试；外部依赖（ffmpeg/jimaku/AI API）
-  全部依赖注入 fake。跑法：`npm test`（当前 server 185 + web 53，改完必须全绿；以实际输出为准）。
+  全部依赖注入 fake。跑法：`npm test`（当前 server 246 + web 56，改完必须全绿；以实际输出为准）。
 - **模块模式**：新功能 = `server/src/modules/<name>/routes.ts`（Fastify plugin，opts 传 db 和可注入依赖）
   + `index.ts` 注册 + `web/src/api.ts` 加方法。别在组件里直接 fetch。
 - **UI**：颜色只用 index.css 的语义 token（`--bg` / `--text` / `--surface` / `--border` 等，声明在

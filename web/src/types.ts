@@ -78,15 +78,25 @@ export interface CatalogHome {
 }
 
 export type DramaLevel = 'N3' | 'N2' | 'N1' | 'N1+';
+/** 厳選（TMDB id）と Bangumi 検索結果（subject id）は id の名前空間が違う */
+export type DramaSource = 'editorial' | 'bangumi';
 export interface CatalogDrama {
   id: number;
+  source: DramaSource;
   title: string;
   titleRomaji: string | null;
+  titleAliases: string[];
   coverImage: string | null;
   bannerImage: string | null;
   startDate: string | null;
-  level: DramaLevel;
-  recommendation: { badge: string; reason: string };
+  description: string | null;
+  /** 0–10（Bangumi）。厳選は null */
+  score: number | null;
+  episodes: number | null;
+  network: string | null;
+  /** 厳選由来。検索結果でも同名の厳選があれば載る */
+  level?: DramaLevel;
+  recommendation?: { badge: string; reason: string };
 }
 export interface DramaHome {
   hero: CatalogDrama;

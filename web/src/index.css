@@ -746,6 +746,11 @@ hr { border: 0; border-top: 1px solid var(--border-soft); margin: 26px 0; }
 .skeleton-card .anime-cover::before { display: none; }
 @keyframes catalog-pulse { from { opacity: 0.45; } to { opacity: 0.8; } }
 .empty-catalog { padding: 50px 20px; border: 1px dashed var(--border); border-radius: var(--radius-md); color: var(--text-muted); text-align: center; }
+/* ドラマ検索: カタログの下に Nyaa 直引きへの入口を 1 つだけ置く */
+.search-empty { margin: 0 0 8px; color: var(--text-3); }
+.search-more { display: flex; justify-content: center; margin: 28px 0 8px; }
+.search-more .quiet-button { border-color: var(--border); }
+.search-more .quiet-button:hover { border-color: var(--border-strong); color: var(--text); }
 .catalog-footer {
   color: var(--text-faint); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
   text-align: center; padding: 22px 0 26px;

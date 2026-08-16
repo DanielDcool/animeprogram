@@ -83,6 +83,10 @@ export default function App() {
           path="/drama/:id"
           element={<ForceMode mode="drama" onForce={setMode}><DramaDetailPage /></ForceMode>}
         />
+        <Route
+          path="/drama/bgm/:id"
+          element={<ForceMode mode="drama" onForce={setMode}><DramaDetailPage /></ForceMode>}
+        />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/play/:id" element={<PlayerPage />} />
         <Route path="/vocab" element={<VocabPage />} />

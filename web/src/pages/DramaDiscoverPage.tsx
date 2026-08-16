@@ -2,14 +2,16 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import ResourceResults from '../catalog/ResourceResults';
-import { airYearLabel } from '../drama/view';
+import { airYearLabel, dramaCardMeta, dramaDetailPath, dramaScoreLabel } from '../drama/view';
 import type { CatalogDrama, DramaHome } from '../types';
 
 const MARQUEE_TEXT = '生の日本語を、毎日の会話から · ';
 
+/** 厳選と Bangumi の検索結果を同じカードで見せる。難易度が分かるものは評価より難易度を優先 */
 function DramaCard({ drama }: { drama: CatalogDrama }) {
+  const meta = dramaCardMeta(drama);
   return (
-    <Link className="anime-card" to={`/drama/${drama.id}`}>
+    <Link className="anime-card" to={dramaDetailPath(drama)}>
       <div className="anime-cover">
         {drama.coverImage && (
           <img
@@ -19,14 +21,29 @@ function DramaCard({ drama }: { drama: CatalogDrama }) {
             onError={(event) => { event.currentTarget.style.display = 'none'; }}
           />
         )}
-        <span className="anime-score">{drama.level}</span>
+        <span className="anime-score">{drama.level ?? dramaScoreLabel(drama.score)}</span>
       </div>
       <div className="anime-card-body">
         <h3>{drama.title}</h3>
-        <p className="anime-romaji">{drama.titleRomaji ?? airYearLabel(drama.startDate)}</p>
-        <div className="anime-tags"><span>{drama.recommendation.badge}</span></div>
+        {/* 副行はローマ字綴り優先。無ければ「年 · 話数 · 局」。両方あるときは後者をタグに回す */}
+        <p className="anime-romaji">{drama.titleRomaji || meta}</p>
+        <div className="anime-tags">
+          {drama.recommendation
+            ? <span>{drama.recommendation.badge}</span>
+            : (drama.titleRomaji && meta ? <span>{meta}</span> : null)}
+        </div>
       </div>
     </Link>
+  );
+}
+
+function LoadingCards() {
+  return (
+    <div className="anime-grid" aria-label="読み込み中">
+      {Array.from({ length: 6 }, (_, index) => (
+        <div className="anime-card skeleton-card" key={index}><div className="anime-cover" /></div>
+      ))}
+    </div>
   );
 }
 
@@ -37,6 +54,11 @@ export default function DramaDiscoverPage() {
   const [query, setQuery] = useState('');
   /** 実際に検索に出した語。入力途中で結果が入れ替わらないように分けて持つ */
   const [submitted, setSubmitted] = useState('');
+  const [results, setResults] = useState<CatalogDrama[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  /** Nyaa 直引きを開いているか。カタログが 0 件・不通のときは自動で開く */
+  const [showResources, setShowResources] = useState(false);
 
   const loadHome = useCallback(async () => {
     setLoading(true);
@@ -52,16 +74,40 @@ export default function DramaDiscoverPage() {
 
   useEffect(() => { void loadHome(); }, [loadHome]);
 
-  function search(event: FormEvent) {
+  function resetSearch() {
+    setQuery('');
+    setSubmitted('');
+    setResults(null);
+    setSearchError('');
+    setShowResources(false);
+    setError('');
+  }
+
+  async function search(event: FormEvent) {
     event.preventDefault();
     const term = query.trim();
     if (Array.from(term).length < 2) {
       setError(term ? '検索語は2文字以上で入力してください。' : '');
-      setSubmitted('');
+      if (!term) resetSearch();
       return;
     }
     setError('');
+    setSearchError('');
     setSubmitted(term);
+    setSearching(true);
+    setShowResources(false);
+    try {
+      const { items } = await api.dramaSearch(term);
+      setResults(items);
+      // 作品カタログに無いものは Nyaa に直接当たるしかないので、待たせずに開く
+      setShowResources(items.length === 0);
+    } catch {
+      setResults([]);
+      setSearchError('作品情報を取得できませんでした。Nyaa で直接探せます。');
+      setShowResources(true);
+    } finally {
+      setSearching(false);
+    }
   }
 
   return (
@@ -75,16 +121,12 @@ export default function DramaDiscoverPage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="作品名で資料を検索（日本語・ローマ字）"
-            aria-label="ドラマの資料を検索"
+            placeholder="作品名で検索（日本語・ローマ字）"
+            aria-label="ドラマを検索"
           />
           <button type="submit">検索</button>
           {submitted && (
-            <button
-              type="button"
-              className="quiet-button"
-              onClick={() => { setQuery(''); setSubmitted(''); setError(''); }}
-            >
+            <button type="button" className="quiet-button" onClick={resetSearch}>
               厳選へ戻る
             </button>
           )}
@@ -96,21 +138,36 @@ export default function DramaDiscoverPage() {
       {submitted ? (
         <section className="catalog-section">
           <div className="section-heading">
-            <div><p className="eyebrow">SEARCH</p><h2>「{submitted}」の資料</h2></div>
-            <p>厳選リストに無い作品はここから探せます</p>
+            <div><p className="eyebrow">SEARCH</p><h2>「{submitted}」の検索結果</h2></div>
+            <p>{!searching && results ? `${results.length}作品` : ''}</p>
           </div>
-          <ResourceResults
-            defaultCategory="all"
-            autoLoadOn={submitted}
-            fetchResources={(category) => api.dramaSearchResources(submitted, category)}
-          />
+          {searching && <LoadingCards />}
+          {!searching && results && results.length > 0 && (
+            <div className="anime-grid">
+              {results.map((drama) => <DramaCard drama={drama} key={`${drama.source}-${drama.id}`} />)}
+            </div>
+          )}
+          {!searching && searchError && <div className="catalog-error" role="alert"><p>{searchError}</p></div>}
+          {!searching && results && results.length === 0 && !searchError && (
+            <p className="search-empty">作品が見つかりませんでした。下の Nyaa 直接検索で探せます。</p>
+          )}
+          {!searching && results && !showResources && (
+            <div className="search-more">
+              <button type="button" className="quiet-button" onClick={() => setShowResources(true)}>
+                もっと探す（Nyaa で直接検索）
+              </button>
+            </div>
+          )}
+          {!searching && showResources && (
+            <ResourceResults
+              defaultCategory="all"
+              autoLoadOn={submitted}
+              fetchResources={(category) => api.dramaSearchResources(submitted, category)}
+            />
+          )}
         </section>
       ) : loading ? (
-        <div className="anime-grid" aria-label="読み込み中">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div className="anime-card skeleton-card" key={index}><div className="anime-cover" /></div>
-          ))}
-        </div>
+        <LoadingCards />
       ) : home && (
         <>
           <section
@@ -120,14 +177,14 @@ export default function DramaDiscoverPage() {
               : undefined}
           >
             <div className="hero-content">
-              <span className="hero-badge">{home.hero.recommendation.badge}</span>
+              {home.hero.recommendation && <span className="hero-badge">{home.hero.recommendation.badge}</span>}
               <h2>{home.hero.title}</h2>
               <p className="hero-romaji">
                 {[home.hero.titleRomaji, airYearLabel(home.hero.startDate)].filter(Boolean).join(' · ')}
               </p>
-              <p className="hero-reason">{home.hero.recommendation.reason}</p>
-              <div className="hero-meta"><span>目安 {home.hero.level}</span></div>
-              <Link className="primary-link" to={`/drama/${home.hero.id}`}>作品を見る →</Link>
+              {home.hero.recommendation && <p className="hero-reason">{home.hero.recommendation.reason}</p>}
+              {home.hero.level && <div className="hero-meta"><span>目安 {home.hero.level}</span></div>}
+              <Link className="primary-link" to={dramaDetailPath(home.hero)}>作品を見る →</Link>
             </div>
           </section>
 
@@ -138,15 +195,15 @@ export default function DramaDiscoverPage() {
             </div>
             <div className="drama-pick-grid">
               {home.picks.map((drama, index) => (
-                <Link to={`/drama/${drama.id}`} className="drama-pick-card" key={drama.id}>
+                <Link to={dramaDetailPath(drama)} className="drama-pick-card" key={drama.id}>
                   <span className="pick-number">{String(index + 1).padStart(2, '0')}</span>
                   <div className="drama-pick-body">
-                    <span className="pick-badge">{drama.recommendation.badge}</span>
+                    {drama.recommendation && <span className="pick-badge">{drama.recommendation.badge}</span>}
                     <h3>{drama.title}</h3>
                     <p className="drama-pick-meta">
-                      {[`目安 ${drama.level}`, airYearLabel(drama.startDate)].filter(Boolean).join(' · ')}
+                      {[drama.level ? `目安 ${drama.level}` : '', airYearLabel(drama.startDate)].filter(Boolean).join(' · ')}
                     </p>
-                    <p>{drama.recommendation.reason}</p>
+                    {drama.recommendation && <p>{drama.recommendation.reason}</p>}
                   </div>
                   {drama.coverImage && (
                     <img
@@ -171,7 +228,7 @@ export default function DramaDiscoverPage() {
         </div>
       </div>
       <footer className="catalog-footer">
-        作品リストはこのアプリに同梱の手書きです。ポスター画像は TMDB のものを参照しています。
+        厳選リストはこのアプリに同梱の手書き、検索結果と作品情報は Bangumi (bgm.tv) を参照しています。ポスター画像は各サービスのものです。
       </footer>
     </main>
   );

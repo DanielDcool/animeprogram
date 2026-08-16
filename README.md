@@ -22,8 +22,8 @@ tanku Anime is an early-stage, self-hosted web app. Your media files stay on you
 
 - Discover both anime and Japanese drama: browse the current and previous anime season, open the drama picks that ship with the app, search titles, and open official streaming or information links.
 - Switch between **アニメ** (anime) and **ドラマ** (Japanese TV drama) from the top navigation. The whole site inverts with the mode — anime is ink-black with bone-white text, drama is the other way round — while the player page stays ink-black in both modes, so no large bright surface sits next to the video except the analysis panel.
-- Start with drama without configuring anything: a hand-written pick list of eight Japanese dramas ships with the app, each with a short reason it is useful for learning, such as workplace keigo or everyday conversation.
-- Add an optional TMDB token for more drama browsing: the current and previous cour (クール) listings, full drama search, Japanese-language synopses, the broadcast network, and Japan-region streaming links.
+- Start with drama without configuring anything: a hand-written pick list of Japanese dramas ships with the app, graded by listening difficulty, each with a short reason it is useful for learning, such as workplace keigo or everyday conversation.
+- Search any other Japanese drama by title (Japanese or romaji) — results come as poster cards with a rating, episode count, network, and synopsis from Bangumi, no token required. A **もっと探す** button under the cards runs the same keyword straight against Nyaa when the catalog has nothing.
 - Learn from local `.mp4` / `.mkv` files with Japanese `.srt` / `.ass` subtitles. MKV files are remuxed when needed for browser playback.
 - Keep larger libraries readable: media is grouped by its containing folder, and each folder can be collapsed independently.
 - Switch episodes from the player: it lists playable videos in the same folder with previous, next, and direct episode links.
@@ -113,13 +113,9 @@ Explanations are written in Chinese or English. By default the language follows 
 
 OpenAI requires an [OpenAI Platform API key](https://platform.openai.com/api-keys). A ChatGPT or Codex subscription by itself is not an API key.
 
-### Drama listings and search (TMDB)
+### Drama search (Bangumi)
 
-Drama mode needs no token to be useful: the built-in pick list, resource search, subtitle fetching, playback, and the whole learning loop all work without one. Configure a token only if you also want the current and previous cour (クール) listings, full drama search, Japanese-language synopses, the broadcast network, and Japan-region streaming links.
-
-Create a TMDB account, open the [TMDB API settings page](https://www.themoviedb.org/settings/api), and copy the **API Read Access Token** — the long one. The short "API Key" will not work, because tanku Anime authenticates with a Bearer header. Paste the token into **設定 / Settings**.
-
-Like the other keys, it is stored only in the local SQLite database; do not commit keys or the `server/data/` directory.
+Drama mode needs no token at all. The home page is the built-in pick list; the search box looks titles up on [Bangumi](https://bgm.tv/) (`api.bgm.tv`, public and keyless) and shows Japanese TV dramas only — movies, variety shows, and non-Japanese series are filtered out. Bangumi is a community-maintained database: obscure or very old titles may be missing, and some synopses are in Chinese rather than Japanese. Whatever the catalog cannot find, the **もっと探す（Nyaa で直接検索）** button under the results searches by keyword on Nyaa directly.
 
 ### Subtitles and local media
 
@@ -198,7 +194,7 @@ Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_
 - Bring only media and subtitles you are authorized to use.
 - Your media stays in the configured local media directory; the app does not upload it.
 - The optional resource search only returns public metadata and a magnet handoff for your local downloader. It does not download, host, or proxy video.
-- Drama information comes from [TMDB](https://www.themoviedb.org/). This product uses the TMDB API but is not endorsed or certified by TMDB.
+- Drama search results and work details come from [Bangumi 番組計画](https://bgm.tv/) via its public API; poster images are loaded from Bangumi's and TMDB's CDNs and are not stored by this app. tanku Anime is not affiliated with either service.
 - API keys, viewing progress, vocabulary, mappings, and AI explanation cache are local application data. Back up or remove the SQLite data directory deliberately.
 - The server listens on `127.0.0.1` by default. Do not expose it to an untrusted network; API keys are currently stored in the local SQLite database in plaintext. See [SECURITY.md](SECURITY.md) for reporting and threat-model details.
 
@@ -210,4 +206,4 @@ tanku Anime is released under the [MIT License](LICENSE).
 
 Early-stage, but used daily by its author. The full learning loop is verified on macOS with real media; Windows has compatibility fixes, cross-platform CI, and a verified clean install and startup, with media playback on physical hardware still unconfirmed.
 
-Drama mode is the newest addition. Its no-token paths — the built-in pick list, drama resource search, and Jimaku drama subtitles — are confirmed against the real services, while the TMDB-backed seasonal listings, search, and detail pages have not yet been exercised with a real token. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the roadmap.
+Drama mode is the newest addition. The built-in pick list, Bangumi title search and detail pages, drama resource search, and Jimaku drama subtitles are all confirmed against the real services. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the roadmap.

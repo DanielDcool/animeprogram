@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useMatch, useParams } from 'react-router-dom';
 import { api } from '../api';
 import ResourceResults from '../catalog/ResourceResults';
+import { dramaScoreLabel } from '../drama/view';
 import type { CatalogDrama } from '../types';
 
+/**
+ * 厳選（/drama/:id）と Bangumi の検索結果（/drama/bgm/:id）を同じページで見せる。
+ * 取得口だけが違い、難易度・推薦文は厳選にしか無く、あらすじ・評価・局は Bangumi にしか無い。
+ */
 export default function DramaDetailPage() {
   const { id } = useParams();
+  const isBangumi = useMatch('/drama/bgm/:id') != null;
   const [drama, setDrama] = useState<CatalogDrama | null>(null);
   const [error, setError] = useState('');
 
@@ -16,13 +22,21 @@ export default function DramaDetailPage() {
       return;
     }
     setError('');
-    api.dramaDetail(dramaId).then(setDrama).catch(() => setError('作品情報を取得できませんでした。'));
-  }, [id]);
+    setDrama(null);
+    const load = isBangumi ? api.dramaBangumiDetail : api.dramaDetail;
+    load(dramaId).then(setDrama).catch((failure: { status?: number }) => {
+      setError(failure?.status === 404 ? '作品が見つかりませんでした。' : '作品情報を取得できませんでした。');
+    });
+  }, [id, isBangumi]);
 
   if (error) {
     return <main className="detail-state"><p>{error}</p><Link to="/">← ドラマ一覧へ</Link></main>;
   }
   if (!drama) return <main className="detail-state">作品情報を読み込んでいます…</main>;
+
+  const fetchResources = drama.source === 'bangumi'
+    ? (category: Parameters<typeof api.dramaBangumiResources>[1]) => api.dramaBangumiResources(drama.id, category)
+    : (category: Parameters<typeof api.dramaResources>[1]) => api.dramaResources(drama.id, category);
 
   return (
     <main className="anime-detail">
@@ -41,20 +55,30 @@ export default function DramaDetailPage() {
             {drama.coverImage && <img src={drama.coverImage} alt={`${drama.title}のカバー`} onError={(event) => { event.currentTarget.style.display = 'none'; }} />}
           </div>
           <dl className="detail-facts">
-            <div><dt>目安</dt><dd>{drama.level}</dd></div>
+            {drama.level && <div><dt>目安</dt><dd>{drama.level}</dd></div>}
+            {drama.source === 'bangumi' && <div><dt>評価</dt><dd>{dramaScoreLabel(drama.score)}</dd></div>}
+            {drama.episodes != null && <div><dt>話数</dt><dd>{drama.episodes}話</dd></div>}
+            {drama.network && <div><dt>放送局</dt><dd>{drama.network}</dd></div>}
             {drama.startDate && <div><dt>放送開始</dt><dd>{drama.startDate}</dd></div>}
           </dl>
         </aside>
         <article className="detail-main">
-          <span className="hero-badge">{drama.recommendation.badge}</span>
+          {drama.recommendation && <span className="hero-badge">{drama.recommendation.badge}</span>}
           <h1>{drama.title}</h1>
           {drama.titleRomaji && <p className="detail-english">{drama.titleRomaji}</p>}
-          <blockquote className="recommendation-note">{drama.recommendation.reason}</blockquote>
+          {drama.recommendation && <blockquote className="recommendation-note">{drama.recommendation.reason}</blockquote>}
+          {drama.description && (
+            <section className="detail-section">
+              <p className="eyebrow">STORY</p><h2>作品紹介</h2>
+              <p className="detail-description">{drama.description}</p>
+            </section>
+          )}
 
           <ResourceResults
+            key={`${drama.source}-${drama.id}`}
             subjectId={drama.id}
             defaultCategory="all"
-            fetchResources={(category) => api.dramaResources(drama.id, category)}
+            fetchResources={fetchResources}
           />
 
           <section className="local-learning">
@@ -64,7 +88,7 @@ export default function DramaDetailPage() {
         </article>
       </div>
       <footer className="catalog-footer">
-        作品リストはこのアプリに同梱の手書きです。ポスター画像は TMDB のものを参照しています。
+        厳選リストはこのアプリに同梱の手書き、検索結果と作品情報は Bangumi (bgm.tv) を参照しています。ポスター画像は各サービスのものです。
       </footer>
     </main>
   );
