@@ -5,6 +5,15 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # better-sqlite3 は v11 に固定している。v13 の prebuilt は
+      # macOS arm64 / Node 22 で new Database() が segfault するため
+      # （docs/DEVELOPMENT.md §4「better-sqlite3 锁 v11」参照）。
+      # 11.x 内のパッチは受け取りたいので、メジャーだけ止める。
+      # 解除条件: node:sqlite へ移行するか、実機で v13 以降の起動を確認できたとき。
+      - dependency-name: better-sqlite3
+        update-types:
+          - version-update:semver-major
   - package-ecosystem: github-actions
     directory: /
     schedule:

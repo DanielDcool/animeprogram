@@ -266,6 +266,10 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 - **better-sqlite3 锁 v11**：v13 prebuilt 在这台 Mac(arm64, Node 22.12) `new Database()` 直接 segfault。**不要升级**。
   v11.10.0 官方 release 同时提供 Node ABI 127（Node 22）的 Windows x64 与 arm64 prebuild；Windows CI 启动烟测
   会实际创建 SQLite。若用户机器仍回退到本地编译，先报告错误，不自动安装 Visual Studio Build Tools。
+  **2026-08-15 起 Dependabot 已配置忽略该包的大版本升级**（`.github/dependabot.yml` 的 npm 块，
+  `update-types: version-update:semver-major`）。原因是它每周都会开一个升到 v13 的 PR，而合进去
+  应用开机即崩、且崩在原生模块段错误这种难排查的位置。11.x 内的补丁仍会正常提示。
+  解除条件：迁移到 `node:sqlite`，或在实机确认 v13 以上能正常启动。
 - **npm 安装**：用户 ~/.npmrc 走 Clash 代理(127.0.0.1:7890)，代理没开时一切 install 失败；
   用 `npm install --userconfig /dev/null --registry https://registry.npmjs.org ...` 绕过，别改全局配置。
 - **视觉系统从标识推导，只用墨黑与米白**（2026-08-08，来源为 Claude Design 稿《tanku Anime 视觉改版》）：
