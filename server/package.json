@@ -12,7 +12,7 @@
     "@anthropic-ai/sdk": "^0.112.4",
     "@fastify/cors": "^11.3.0",
     "better-sqlite3": "^11.10.0",
-    "fastify": "^5.11.2",
+    "fastify": "^5.11.3",
     "fflate": "^0.8.3",
     "kuromoji": "^0.1.2"
   },
