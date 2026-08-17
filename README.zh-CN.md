@@ -22,6 +22,8 @@ irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/inst
 
 跑完应用会自动启动并打开浏览器。之后每次使用，**双击桌面上的 tanku Anime 快捷方式**即可。再运行一次同样的命令就是更新。想用 git？见[手动安装](#手动安装)。
 
+> **需要代理才能访问 GitHub 的网络：请先把代理软件切到 TUN / 增强模式，再粘贴命令。** 安装脚本要从 GitHub、nodejs.org 和 npm 下载，而终端里的 `curl` 和 `npm` 不会自动走系统代理（Windows 的 PowerShell 下载会走，但 `npm` 同样不会）。不想开 TUN 的话，也可以在同一个终端里先执行 `export HTTPS_PROXY=http://127.0.0.1:7890`（Windows：`$env:HTTPS_PROXY = "http://127.0.0.1:7890"`，端口换成你代理的端口）再粘贴安装命令。装好之后，如果在应用里搜资源也需要代理，见下文「[资源搜索只显示「Nyaa で検索」链接](#资源搜索只显示nyaa-で検索链接)」。
+
 <details>
 <summary>安装脚本具体做了什么</summary>
 
