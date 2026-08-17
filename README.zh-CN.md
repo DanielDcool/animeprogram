@@ -4,6 +4,34 @@
 
 **一个本地优先的日语学习播放器，覆盖动画与日剧。** 先发现想看的作品，再用自己的本地媒体观看；默认隐藏字幕，听不懂时暂停，查看当前句、分词查词、按需获取 AI 讲解，并保存到生词本复习。
 
+## 安装
+
+一条命令。事先不需要 git、Node.js 或 FFmpeg。
+
+macOS：打开「终端」（`⌘ + 空格`，输入 `终端`），粘贴：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.sh | bash
+```
+
+Windows：打开 PowerShell（按 `⊞ Win` 键，输入 `PowerShell`），粘贴：
+
+```powershell
+irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.ps1 | iex
+```
+
+跑完应用会自动启动并打开浏览器。之后每次使用，**双击桌面上的 tanku Anime 快捷方式**即可。再运行一次同样的命令就是更新。想用 git？见[手动安装](#手动安装)。
+
+<details>
+<summary>安装脚本具体做了什么</summary>
+
+- 安装到 `~/tankuanime`，下载的所有东西都放在这个文件夹里：源码、一份应用私有的 Node.js 22（nodejs.org 官方构建，SHA-256 校验）、FFmpeg。不需要管理员权限，不改系统 `PATH`，也不改 shell 配置。如果 `PATH` 里已有 Node.js 22 或 FFmpeg，会直接沿用。
+- FFmpeg 来自 ffmpeg.org 官网链接的构建：macOS 没装 Homebrew 时用 [evermeet.cx](https://evermeet.cx/ffmpeg/) 的静态包（Intel 二进制，Apple Silicon 上经 Rosetta 2 运行）；Windows 用 [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) 的 essentials 构建。
+- 顺手下载日语词典（JMdict）、执行 `npm ci`，并在桌面放一个 **tanku Anime** 快捷方式。卸载 = 删除文件夹和快捷方式。
+- Windows：安装脚本和启动器每次推送都在 CI 上实跑，但还没在实体 Windows 机器上试过——欢迎反馈。
+
+</details>
+
 ![tanku Anime 播放器：暂停在没听懂的那一句，右侧显示分词、词典和 AI 讲解](docs/images/player.png)
 
 *暂停在没听懂的那一句。当前句被分词，点击的词显示读音和 JMdict 释义，需要时再让 AI 给出翻译、语法结构、表现和语气。*
@@ -31,27 +59,9 @@ tanku Anime 是一个仍在早期阶段、自行部署在本机的 Web 应用。
 - 收藏单词和句子，在详情页查看释义、已有 AI 讲解缓存和带时间的来源链接，再一键发送到名为 `tanku Anime` 的 Anki 牌组；已添加的卡片会自动跳过。
 - 可选地连接 Jimaku 匹配字幕，或把 magnet 链接交给你自己的本地下载器。Jimaku 会同时搜索动画和真人剧字幕库，日剧字幕走的是同一套「人工匹配一次」的流程；日剧资源搜索使用 Nyaa 的 Live Action 分类，默认取 raw 发布。应用不包含下载器 RPC、视频传输或远程媒体管理。
 
-## 快速开始
+## 手动安装
 
-### 一行命令安装（事先不需要 git、Node.js 或 FFmpeg）
-
-macOS：打开「终端」（`⌘ + 空格`，输入 `终端`），粘贴：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.sh | bash
-```
-
-Windows：打开 PowerShell（按 `⊞ Win` 键，输入 `PowerShell`），粘贴：
-
-```powershell
-irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.ps1 | iex
-```
-
-脚本会安装到 `~/tankuanime`，并把下载的所有东西——源码、一份应用私有的 Node.js 22（nodejs.org 官方构建，SHA-256 校验）、FFmpeg——都放在这个文件夹里。不需要管理员权限，不改系统 `PATH`，也不改 shell 配置。如果 `PATH` 里已经有 Node.js 22 或 FFmpeg，会直接沿用。macOS 没装 Homebrew 时，会下载 ffmpeg.org 官网链接的静态构建（[evermeet.cx](https://evermeet.cx/ffmpeg/)，Intel 二进制，Apple Silicon 上经 Rosetta 2 运行）；Windows 下载 [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) 的 essentials 构建。脚本还会顺手下载日语词典（见下文），在桌面放一个 **tanku Anime** 快捷方式，并启动一次应用。
-
-之后每次使用：**双击桌面快捷方式**（或文件夹里的 `tanku Anime.command` / `tanku Anime.bat`）即可，应用就绪后会自动打开浏览器。再运行一次同样的命令就是更新；删除文件夹和快捷方式就是卸载。Windows 说明：安装脚本和启动器每次推送都在 CI 上实跑，但还没有在实体 Windows 机器上运行过——欢迎反馈。
-
-### 手动安装
+面向开发者，或者你更想用自己的 git 检出、Node.js 和 FFmpeg。
 
 **运行要求：** Node.js 22.x，以及已加入 `PATH` 的 `ffmpeg` 和 `ffprobe`。macOS 已用真实媒体完整验证；Windows 的安装与启动已验证，实体机上的媒体播放尚未确认。
 
@@ -81,6 +91,8 @@ npm start
 
 `npm start` 启动前会先做环境预检：Node.js 大版本不是 22 时会直接停止并给出安装指引；`PATH` 中缺少 `ffmpeg` 或 `ffprobe` 时会打印警告，但仍会启动。设置 `TANKU_OPEN_BROWSER=1` 可以让它在页面就绪后自动打开浏览器——双击启动器就是这么做的。
 
+## 首次运行
+
 打开 [http://localhost:5173](http://localhost:5173)。应用会自动创建本地数据库，并默认监视用户主目录中的 `AnimeLibrary` 文件夹。你可以在**设置**页直接修改完整路径；保存后重启应用即可生效。
 
 媒体库为空时，页面会直接引导你设置媒体目录、放入第一段视频和可选字幕。仅播放本地视频不需要任何 API key；AI 讲解和 Jimaku 都可以稍后再配置。
@@ -105,7 +117,7 @@ npm start
 
 ### 日语词典
 
-如需本地单词释义，运行：
+如需本地单词释义，运行（一行安装脚本已经做过这一步）：
 
 ```bash
 npm run setup:jmdict

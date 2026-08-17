@@ -6,6 +6,34 @@
 
 > 中文：一个本地优先的日语学习播放器，覆盖动画与日剧。先听、再暂停看当前句、分词查词和按需 AI 讲解，最后保存到生词本复习。
 
+## Install
+
+One command. No git, Node.js, or FFmpeg needed beforehand.
+
+macOS — open Terminal (`⌘ + Space`, type `Terminal`) and paste:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.sh | bash
+```
+
+Windows — open PowerShell (`⊞ Win`, type `PowerShell`) and paste:
+
+```powershell
+irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.ps1 | iex
+```
+
+When it finishes, the app starts and your browser opens. From then on, **double-click the tanku Anime shortcut on your Desktop** to start it. Run the same command again to update. Prefer git? See [Manual setup](#manual-setup).
+
+<details>
+<summary>What the installer does</summary>
+
+- Installs into `~/tankuanime` and keeps everything it downloads inside that folder: the source, a private Node.js 22 (official nodejs.org build, SHA-256 verified), and FFmpeg. No administrator rights; your system `PATH` and shell profile are not touched. If a Node.js 22 or FFmpeg is already on your `PATH`, it uses that instead.
+- FFmpeg comes from the builds linked on ffmpeg.org: on macOS without Homebrew, the static build from [evermeet.cx](https://evermeet.cx/ffmpeg/) (Intel binaries, run through Rosetta 2 on Apple Silicon); on Windows, the [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) essentials build.
+- Also fetches the Japanese dictionary (JMdict), runs `npm ci`, and puts a **tanku Anime** shortcut on your Desktop. Uninstall = delete the folder and the shortcut.
+- Windows: the installer and launcher run in CI on every push, but have not yet been tried on a physical Windows machine — reports welcome.
+
+</details>
+
 ![The tanku Anime player paused on a line, with the sentence tokenized and an AI explanation open](docs/images/player.png)
 
 *Paused on the line you missed. The sentence is tokenized, the word you click shows its reading and JMdict entry, and the optional AI breakdown covers translation, grammar, phrasing, and tone.*
@@ -33,27 +61,9 @@ tanku Anime is an early-stage, self-hosted web app. Your media files stay on you
 - Save words and sentences, inspect their meaning, cached AI explanation, and timestamped source, then send them to a `tanku Anime` Anki deck with one click. Existing cards are skipped.
 - Optionally connect to Jimaku for subtitle matching, and hand a magnet link to your own local downloader. Jimaku matching searches both its anime and live-action libraries, so drama subtitles go through the same one-time manual match, and drama resource search uses Nyaa's Live Action category with raw releases as the default. No downloader RPC, video transfer, or remote media lifecycle is built into the app.
 
-## Quick start
+## Manual setup
 
-### One-line install (no git, Node.js, or FFmpeg needed beforehand)
-
-macOS — open Terminal (`⌘ + Space`, type `Terminal`) and paste:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.sh | bash
-```
-
-Windows — open PowerShell (`⊞ Win`, type `PowerShell`) and paste:
-
-```powershell
-irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.ps1 | iex
-```
-
-The script installs into `~/tankuanime` and keeps everything it downloads — the source, a private Node.js 22 (official nodejs.org build, SHA-256 verified), and FFmpeg — inside that folder. It needs no administrator rights and does not touch your system `PATH` or shell profile. If a Node.js 22 or FFmpeg is already on your `PATH`, it uses that instead. On macOS without Homebrew it downloads the static FFmpeg build linked from ffmpeg.org ([evermeet.cx](https://evermeet.cx/ffmpeg/), Intel binaries that run through Rosetta 2 on Apple Silicon); on Windows it downloads the [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) essentials build. It also fetches the Japanese dictionary (see below), puts a **tanku Anime** shortcut on your Desktop, and starts the app once.
-
-From then on: **double-click the Desktop shortcut** (or `tanku Anime.command` / `tanku Anime.bat` inside the folder) to start; the browser opens by itself when the app is ready. Run the same command again to update. Delete the folder and the shortcut to uninstall. Windows: the installer and launcher are exercised in CI on every push, but they have not yet been run on a physical Windows machine — reports welcome.
-
-### Manual setup
+For developers, or if you would rather use your own git checkout, Node.js, and FFmpeg.
 
 **Requirements:** Node.js 22.x and FFmpeg, with both `ffmpeg` and `ffprobe` available on `PATH`. macOS is fully verified with real media; on Windows, install and startup are verified but media playback on physical hardware is not yet confirmed.
 
@@ -83,6 +93,8 @@ npm start
 
 `npm start` runs a quick environment check first: it stops with install guidance when the Node.js major version is not 22, and prints a warning (while still starting) when `ffmpeg` or `ffprobe` is missing from `PATH`. Set `TANKU_OPEN_BROWSER=1` to have it open the browser once the page is ready — this is what the double-click launchers do.
 
+## First run
+
 Open [http://localhost:5173](http://localhost:5173). The application creates its local database automatically and watches the `AnimeLibrary` folder in your home directory by default. You can edit the full path in **Settings**; restart the application after saving it.
 
 When the library is empty, the page walks through choosing a media folder, adding the first video, and optionally adding subtitles. Local playback needs no API key; AI explanations and Jimaku can be configured later.
@@ -107,7 +119,7 @@ npm start
 
 ### Japanese dictionary
 
-For local word definitions, run:
+For local word definitions, run (the one-line installer already does this):
 
 ```bash
 npm run setup:jmdict

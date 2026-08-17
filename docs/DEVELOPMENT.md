@@ -534,10 +534,11 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
   better-sqlite3 对 Node 22 的锁定；`node:sqlite` 迁移评估未排期。
 - **已完成（2026-08-17）**：双击启动器（`tanku Anime.command` / `.bat`，就绪后自动开浏览器）与一行安装脚本
   （`scripts/install.sh` / `install.ps1`，源码 + 官方 Node 22 + FFmpeg 全进 `~/tankuanime/.tools/`，重跑即更新），
-  三语 README 快速开始已改为「一行安装 → 双击启动」在前、手动步骤在后。设计见
-  `docs/superpowers/specs/2026-08-17-launcher-and-install-script-design.md`。**未闭环**：Windows 侧只有 CI 实跑，
-  `.bat` 双击与桌面 `.lnk` 等真实 Windows 用户确认；非技术用户中文上手指南（`~/Documents/tanku/文案/` 草稿）
-  待用户确认后翻英文进 `docs/GETTING-STARTED.md`，其中 winget 装 FFmpeg 的段落应改为直接引用一行安装命令。
+  三语 README 结构改为「描述一句 → **## Install（一行命令 + 折叠的「安装脚本做了什么」）** → 截图/功能 →
+  ## Manual setup（git 路径，面向开发者）→ ## First run」，参照 bun / uv 等项目把安装放在最顶部。设计见
+  `docs/superpowers/specs/2026-08-17-launcher-and-install-script-design.md`。**用户决定不做单独的
+  `docs/GETTING-STARTED.md`**（与 README 大量重复），原中文上手指南草稿作废，非技术用户直接看 README 顶部。
+  **未闭环**：Windows 侧只有 CI 实跑，`.bat` 双击与桌面 `.lnk` 等真实 Windows 用户确认。
   下一步是桌面应用（Tauri/Electron），明确等真实反馈再定。
 - 为 README 提供无版权风险的截图或短演示；可用空媒体库或演示数据拍摄，不能纳入未授权动画片段、字幕或个人文件名。
 - 发布第一个带清晰版本号和变更说明的 GitHub Release；在此之前不要把仓库的预发布状态写成稳定版。
