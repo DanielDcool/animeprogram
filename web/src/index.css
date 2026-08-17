@@ -318,6 +318,22 @@ kbd {
 .settings-warning, .settings-restart { color: var(--text-2); }
 .settings-restart, .settings-error { margin: 10px 0 0; font-size: 13px; }
 .settings-error { color: var(--text); }
+/* 他ページから「キーが必要」で誘導されたとき: 上部の案内 + 該当欄の強調（反転色で最強調、赤は使わない） */
+.settings-banner { color: var(--text); border-color: var(--border-strong); }
+input.settings-highlight { border-color: var(--border-strong); box-shadow: 0 0 0 3px var(--surface-2); }
+.settings-back { margin: 12px 0 0; font-size: 13px; }
+/* API キーの取得方法（折りたたみ） */
+.key-guide { margin: 8px 0 0; max-width: 560px; border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 0 14px; font-size: 13px; }
+.key-guide summary { cursor: pointer; padding: 10px 0; color: var(--text-2); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; }
+.key-guide summary:hover { color: var(--text); }
+.key-guide[open] summary { border-bottom: 1px solid var(--border-soft); }
+.key-guide ol { margin: 12px 0 0; padding-left: 20px; line-height: 1.8; color: var(--text-2); }
+.key-guide ol li + li { margin-top: 4px; }
+.key-guide ol a { overflow-wrap: anywhere; }
+.key-guide-note { margin: 10px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.7; }
+.key-guide-link { margin: 12px 0 14px; }
+/* 解析パネル内の設定への誘導 */
+.explain-box .hint-link { margin-left: 8px; color: var(--on-invert); text-decoration: underline; white-space: nowrap; }
 hr { border: 0; border-top: 1px solid var(--border-soft); margin: 26px 0; }
 
 /* ---- 播放ページ ---- */

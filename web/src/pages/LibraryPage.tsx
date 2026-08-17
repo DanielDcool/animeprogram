@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import type { MediaItem } from '../types';
 import { groupMediaByFolder, toggleCollapsedFolder } from '../library/mediaView';
 import { countNeedsMapping, subtitleAction } from '../library/subtitleView';
+import { settingsUrlFor } from '../settings/keyGuides';
 
 interface Candidate { id: number; name: string; englishName: string | null; japaneseName: string | null }
 
 export default function LibraryPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -60,12 +62,12 @@ export default function LibraryPage() {
         setSubSearch({ mediaId, candidates: r.candidates });
       }
     } catch (err: any) {
-      setSubMsg({
-        mediaId,
-        text: err?.body?.code === 'JIMAKU_NOT_CONFIGURED'
-          ? 'jimaku API キー未設定（設定ページで入力してください）'
-          : `検索に失敗: ${err?.body?.error ?? err.message}`,
-      });
+      if (err?.body?.code === 'JIMAKU_NOT_CONFIGURED') {
+        // キー未設定なら設定ページへ誘導し、jimaku 欄をハイライトして取得方法を開く。保存後はここへ戻れる。
+        navigate(settingsUrlFor('jimaku', '/library'));
+        return;
+      }
+      setSubMsg({ mediaId, text: `検索に失敗: ${err?.body?.error ?? err.message}` });
     } finally { setBusy(false); }
   }
 

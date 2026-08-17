@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { api } from '../api';
+import { KeyGuide } from '../settings/KeyGuide';
+import { AI_KEY_GUIDES, JIMAKU_KEY_GUIDE, backLinkLabel, parseSettingsIntent } from '../settings/keyGuides';
+import type { AiProvider } from '../settings/keyGuides';
 
-type AiProvider = 'anthropic' | 'deepseek' | 'openai' | 'gemini';
 type ExplainLanguage = 'auto' | 'zh' | 'en';
 
 const LANGUAGE_LABELS: Record<'zh' | 'en', string> = { zh: '中文', en: 'English' };
@@ -34,6 +37,12 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  // 他ページから「キーが必要」で飛ばされたときの意図（?need=jimaku|ai&back=/library など）
+  const location = useLocation();
+  const intent = parseSettingsIntent(location.search);
+  const [savedOnce, setSavedOnce] = useState(false);
+  const jimakuInputRef = useRef<HTMLInputElement>(null);
+  const aiInputRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
@@ -62,6 +71,14 @@ export default function SettingsPage() {
 
   useEffect(() => { void load(); }, []);
 
+  // 誘導されてきたときは該当欄までスクロールしてフォーカスする
+  useEffect(() => {
+    if (loading || !intent.need) return;
+    const el = intent.need === 'jimaku' ? jimakuInputRef.current : aiInputRef.current;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.focus({ preventScroll: true });
+  }, [loading, intent.need]);
+
   async function save() {
     const payload: Record<string, string> = { ai_provider: provider, ai_model: model, explain_language: explainLanguage };
     if (apiKey) payload[`${provider}_api_key`] = apiKey;
@@ -71,6 +88,7 @@ export default function SettingsPage() {
     try {
       await api.saveSettings(payload);
       setSaved(true);
+      setSavedOnce(true);
       setRestartRequired(!mediaDirOverridden && mediaDir.trim() !== activeMediaDir);
       if (provider === 'deepseek') setDeepseekKeySet(deepseekKeySet || apiKey !== '');
       else if (provider === 'openai') setOpenaiKeySet(openaiKeySet || apiKey !== '');
@@ -91,6 +109,16 @@ export default function SettingsPage() {
     <main className="library settings-page">
       <h1>設定</h1>
       <p className="settings-intro">ローカル動画の再生と学習モードには API キーは不要です。AI 解説と Jimaku 字幕検索だけ、使う機能のキーを設定してください。</p>
+      {intent.need === 'jimaku' && !jimakuKeySet && (
+        <div className="status-message settings-banner" role="status">
+          <span>字幕検索には jimaku の API キーが必要です。下の欄に入力して保存してください（取得方法はすぐ下にあります）。</span>
+        </div>
+      )}
+      {intent.need === 'ai' && !selectedKeySet && (
+        <div className="status-message settings-banner" role="status">
+          <span>AI 解説には選んだ AI サービスの API キーが必要です。下の欄に入力して保存してください（取得方法はすぐ下にあります）。</span>
+        </div>
+      )}
       {loading && <p className="status-message" aria-live="polite">設定を読み込み中…</p>}
       {loadError && (
         <div className="status-message error" role="alert">
@@ -117,7 +145,9 @@ export default function SettingsPage() {
       <p>
         <label>{providerName} API キー {selectedKeySet && '（設定済み）'}<br />
           <input
+            ref={aiInputRef}
             type="password"
+            className={intent.need === 'ai' && !selectedKeySet ? 'settings-highlight' : undefined}
             value={apiKey}
             placeholder={selectedKeySet ? '変更する場合のみ入力' : provider === 'anthropic' ? 'sk-ant-...' : provider === 'gemini' ? 'Google AI Studio で取得' : 'sk-...'}
             onChange={(e) => setApiKey(e.target.value)}
@@ -125,6 +155,7 @@ export default function SettingsPage() {
           />
         </label>
       </p>
+      <KeyGuide guide={AI_KEY_GUIDES[provider]} open={intent.need === 'ai' && !selectedKeySet} />
       {provider === 'openai' && (
         <p className="settings-help">
           OpenAI Platform の API キーを使用します。ChatGPT / Codex のサブスクリプションとは別です。
@@ -137,9 +168,18 @@ export default function SettingsPage() {
       )}
       <p>
         <label>jimaku API キー {jimakuKeySet && '（設定済み）'}<br />
-          <input type="password" value={jimakuKey} placeholder={jimakuKeySet ? '変更する場合のみ入力' : 'https://jimaku.cc/profile で取得'} onChange={(e) => setJimakuKey(e.target.value)} style={{ width: 360 }} />
+          <input
+            ref={jimakuInputRef}
+            type="password"
+            className={intent.need === 'jimaku' && !jimakuKeySet ? 'settings-highlight' : undefined}
+            value={jimakuKey}
+            placeholder={jimakuKeySet ? '変更する場合のみ入力' : 'https://jimaku.cc/account で取得'}
+            onChange={(e) => setJimakuKey(e.target.value)}
+            style={{ width: 360 }}
+          />
         </label>
       </p>
+      <KeyGuide guide={JIMAKU_KEY_GUIDE} open={intent.need === 'jimaku' && !jimakuKeySet} />
       <p>
         <label>AI モデル<br />
           <input value={model} onChange={(e) => setModel(e.target.value)} style={{ width: 360 }} />
@@ -178,6 +218,9 @@ export default function SettingsPage() {
         )}
       </section>
       <button className="solid-button" onClick={save} disabled={loading || Boolean(loadError)}>保存</button> {saved && '保存しました'}
+      {intent.back && savedOnce && (
+        <p className="settings-back"><Link to={intent.back}>← {backLinkLabel(intent.back)}</Link></p>
+      )}
       {restartRequired && <p className="settings-restart">メディアフォルダを保存しました。アプリを再起動すると変更が反映されます。</p>}
       {saveError && <p className="settings-error">{saveError}</p>}
       <hr />

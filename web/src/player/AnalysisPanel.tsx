@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { settingsUrlFor } from '../settings/keyGuides';
 import type { Token, Explanation } from '../types';
 
 interface Props {
@@ -169,7 +171,10 @@ export default function AnalysisPanel({ sentence, context, mediaId, positionSec,
         ) : explainState === 'loading' ? (
           <p className="hint">AI 解説を生成中…</p>
         ) : explainState === 'unconfigured' ? (
-          <p className="hint">API キー未設定。設定ページで選んだ AI サービスの API キーを入れてください。</p>
+          <p className="hint">
+            API キー未設定。設定ページで選んだ AI サービスの API キーを入れてください。
+            <Link className="hint-link" to={settingsUrlFor('ai', `/play/${mediaId}`)}>設定へ →</Link>
+          </p>
         ) : explainState === 'error' ? (
           <p className="hint">AI 解説に失敗しました。<button onClick={requestExplain}>再試行</button></p>
         ) : (

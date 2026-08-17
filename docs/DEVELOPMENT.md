@@ -69,6 +69,7 @@ web/src/
   catalog/               view.ts（季度/状态/评分）resourceView.ts（资源显示纯函数）
                          ResourceResults.tsx（Nyaa 候选与 magnet 交接，取数可注入）
   drama/                 view.ts（放送年 / Bangumi 评分 / 卡片副行 / 详情路径 纯函数）
+  settings/              keyGuides.ts（取得方法数据 + `?need=&back=` 解析纯函数）KeyGuide.tsx（折叠 UI）
   player/                learningMode.ts(纯reducer,核心状态机) AnalysisPanel / TranscriptList / SubtitleOverlay
 
 scripts/                 纯 Node（无第三方依赖）与安装脚本
@@ -110,6 +111,7 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 | 视觉系统改版：墨黑+米白单色系统，全部颜色/字体/圆角收敛为 index.css `:root` token；标识推导的四构件（方块 10px 圆角 / 选中态底边缺口 / 双横眼 / 短横指示器）贯穿导航、选集、解析面板；播放器字幕使用透明底高对比文字，避免遮挡画面 | index.css + components/BrandMark + App + 各页面 |
 | 开源安装降摩擦：`npm start` 启动预检（Node 22 硬检查、FFmpeg 分级警告、`TANKU_SKIP_PRECHECK=1` 跳过）；`npm run setup:jmdict` 一键下载/解压/导入词典，失败时给手动兜底指引 | scripts/precheck.mjs + scripts/start.mjs + analyze/jmdict-download.ts + server/scripts/setup-jmdict.ts |
 | 双击启动器 + 一行命令安装：根目录 `tanku Anime.command` / `tanku Anime.bat` 双击即 `npm start` 并在页面就绪后自动开浏览器（`TANKU_OPEN_BROWSER=1`）；`scripts/install.sh` / `install.ps1` 一条 curl/irm 命令把源码 tarball、官方 Node 22、FFmpeg 全装进 `~/tankuanime/.tools/`（无 sudo、不改系统 PATH/shell 配置），再 `npm ci` + 词典 + 桌面快捷方式 + 启动一次；重跑即更新 | tanku Anime.command/.bat + scripts/browser.mjs + scripts/start.mjs + scripts/install.sh/.ps1 + ci.yml install-smoke |
+| API キー引导：设置页每个 key 下面有可折叠「取得方法」（3 步 + 直达按钮；jimaku 与 4 家 AI 各一份）；媒体库「字幕を探す」遇 `JIMAKU_NOT_CONFIGURED` 直接跳 `/settings?need=jimaku&back=/library`，播放页 AI 未配置的 hint 带「設定へ」链接（`need=ai&back=/play/:id`）；设置页据 `need` 显示顶部提示、高亮并聚焦对应输入框、展开取得方法，保存后出现「← 戻る」链接 | web/src/settings/keyGuides.ts + KeyGuide.tsx + SettingsPage + LibraryPage + AnalysisPanel |
 | アニメ/ドラマ 双模式：顶部导航切换，整站在墨黑（アニメ）与米白（ドラマ）两套主题间反转；标识形状不变只反转配色；播放页在两模式下都保持墨黑 | web/src/mode.ts + App.tsx + index.css `[data-mode]` + BrandMark |
 | 日剧发现：按听力难度分级的随包清单 15 部 + 昼顔横幅，零配置可用；顶部搜索框查 Bangumi（免 key，只留 `platform=日剧`），结果为海报/评分/话数/电视台的作品卡片，同名精选自动并入难度与推荐理由；卡片下方「もっと探す（Nyaa で直接検索）」展开关键词直搜 Nyaa（0 命中或 Bangumi 不可用时自动展开），日文输入 0 命中时自动改用罗马字读音重查 | drama/bangumi.ts + drama/routes.ts + analyze/romaji.ts + DramaDiscoverPage |
 | 日剧详情与资源：`/drama/:id`（精选）与 `/drama/bgm/:id`（Bangumi，含日文简介/评分/放送局）共用一页；Nyaa Live Action 分类（默认全部）复用既有排序与 magnet 管线，Bangumi 条目用原题 + 拉丁别名（无别名则罗马字读音）检索；jimaku 候选同时查动画与真人剧库并合并去重 | DramaDetailPage + resource/provider.ts + drama/routes.ts + jimaku/client.ts |
@@ -262,6 +264,14 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   macos-latest / windows-latest 全绿：Windows 上 tarball → `node-v22.23.2-win-x64` 校验解压 → gyan essentials
   取出两个 exe → `npm ci` 169 包 7 秒 → `.lnk` 创建成功 → 用 `.tools\node` 跑 `verify:start` 通过。
   **教训：`.ps1` 里传给原生命令的参数不要含引号**（`node -v`、`--flag=value` 这类无引号形式最稳）。
+- 2026-08-17：**API キー引导落地**（用户反馈：装完之后唯一还要用户动手的就是 jimaku key 与 AI key，得把「去哪申请、
+  在哪拿」写进产品里）。`keyGuides.ts` 7 个单测（意图解析、站内 back 校验、返回文案、四家 AI 与 jimaku 的 URL/步骤）。
+  浏览器实测用临时 DATA_DIR/MEDIA_DIR 的独立实例（3105/5275）并直接向 SQLite 插入一行 media：点「字幕を探す」→ 服务端 503
+  `JIMAKU_NOT_CONFIGURED` → 自动跳到 `/settings?need=jimaku&back=%2Flibrary`，顶部提示 + jimaku 框高亮聚焦 + 取得方法展开
+  （AI 侧折叠）；输入假 key 保存 → 「保存しました」+「← ライブラリに戻って字幕を探す」，提示与高亮消失、标签变「設定済み」；
+  `need=ai` 路径同理，切换 provider 时展开的指南与直达按钮跟着变（Anthropic Console → Google AI Studio）；アニメ/ドラマ 两套主题下
+  对比度正常，控制台仅有预期的 503。顺手修正：jimaku 输入框 placeholder 原写 `jimaku.cc/profile`（404），正确是 `/account`
+  （已实测：登录页即注册页，用户名+密码，无需邮箱；/account 里 API Key → Generate → Copy）。全程未播放媒体。
 
 ## 4. 关键决策记录（为什么这么做）
 
@@ -421,6 +431,10 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 - **启动器就绪后自动开浏览器只在 `TANKU_OPEN_BROWSER=1` 时启用**（2026-08-17）：默认 `npm start`、`verify:start`
   与 CI 行为不变；轮询逻辑放 `scripts/browser.mjs`（纯函数 + 注入 fetch，同 precheck 模式）。安装脚本结尾直接以
   启动器方式启动一次，既是首启体验也是对启动器的真实验证；`TANKU_NO_LAUNCH=1` 关闭（CI 用）。
+- **缺 key 的引导：字幕检索直接跳设置页，播放页 AI 只给链接**（2026-08-17，用户选定）：媒体库是列表页，跳走成本低，
+  所以点「字幕を探す」没 key 就直接进 `/settings?need=jimaku&back=/library`；播放页正在看视频，自动跳走太粗暴，
+  改为 hint 内「設定へ →」链接。设置页不自动跳回（用户可能顺手也填 AI key），只在保存后给「← 戻る」链接；`back` 只接受
+  `/` 开头且非 `//` 的站内路径。取得方法写成日文 3 步 + 直达按钮，数据放纯模块便于改文案与测试；不做应用内 OAuth/注册代办。
 - **可调参数只走环境变量，脚本零交互**（2026-08-17）：`curl | bash` / `irm | iex` 下 stdin 是管道，无法可靠提问；
   `TANKU_INSTALL_DIR` / `TANKU_REF` / `TANKU_NO_LAUNCH` / `TANKU_SKIP_JMDICT` 四个开关够用。
 
