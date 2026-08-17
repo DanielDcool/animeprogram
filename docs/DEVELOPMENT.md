@@ -257,6 +257,11 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   `.bat` 未在本地执行过，正确性依赖新增的 CI `install-smoke` job（windows-latest 上用 Windows PowerShell 5.1
   以 `Get-Content -Raw | iex` 方式运行、PATH 中剔除 node/ffmpeg 强制走下载分支、随后用安装目录的 Node 跑
   `verify:start`）；`.bat` 的双击行为与 `.lnk` 只能等真实 Windows 用户确认。全程未播放媒体。
+  推送后 CI 结果：首轮 windows-latest 失败于 Node 探测——Windows PowerShell 5.1 会吞掉传给原生命令参数里的
+  内层引号，`node -p "…split(".")[0]"` 变成语法错误；改为解析 `node -v`（`.bat` 同步改）后第二轮
+  macos-latest / windows-latest 全绿：Windows 上 tarball → `node-v22.23.2-win-x64` 校验解压 → gyan essentials
+  取出两个 exe → `npm ci` 169 包 7 秒 → `.lnk` 创建成功 → 用 `.tools\node` 跑 `verify:start` 通过。
+  **教训：`.ps1` 里传给原生命令的参数不要含引号**（`node -v`、`--flag=value` 这类无引号形式最稳）。
 
 ## 4. 关键决策记录（为什么这么做）
 
