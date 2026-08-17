@@ -1,0 +1,6 @@
+# 起動スクリプトの改行コードを固定する。Windows の core.autocrlf で bash 側に \r が混ざるのを防ぎ、
+# cmd 側は CRLF に揃える（LF の .bat はラベル/goto 周りで既知の不具合がある）。
+*.command text eol=lf
+*.sh      text eol=lf
+*.bat     text eol=crlf
+*.ps1     text eol=crlf

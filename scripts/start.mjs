@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { browserOpenCommand, resolveWebUrl, waitForHttpOk } from './browser.mjs';
 import { defaultCheckCommand, runPrecheck } from './precheck.mjs';
 
 const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -85,6 +86,25 @@ for (const { name, child } of children) {
       stopChildren(failed ? (code ?? 1) : 0);
     }
     if (running === 0) process.exitCode = exitCode;
+  });
+}
+
+// ダブルクリック起動用: TANKU_OPEN_BROWSER=1 のときだけ、web が応答し始めたらブラウザを開く。
+// 通常の `npm start` / verify:start / CI では何もしない。
+if (process.env.TANKU_OPEN_BROWSER === '1') {
+  const url = resolveWebUrl(process.env);
+  waitForHttpOk(url, { timeoutMs: 60_000, intervalMs: 500, fetchImpl: fetch }).then((ready) => {
+    if (stopping) return;
+    if (!ready) {
+      console.warn(`[tanku Anime] The web page did not answer within 60s. Open ${url} manually once it starts.`);
+      return;
+    }
+    const { command, args } = browserOpenCommand(process.platform, url);
+    const opener = spawn(command, args, { detached: true, stdio: 'ignore' });
+    opener.on('error', (error) => {
+      console.warn(`[tanku Anime] Could not open the browser (${error.message}). Open ${url} manually.`);
+    });
+    opener.unref();
   });
 }
 

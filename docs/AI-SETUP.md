@@ -21,6 +21,8 @@ Set up the application without exposing secrets, modifying personal media, addin
 
 ## Setup sequence
 
+Shortcut: `scripts/install.sh` (macOS/Linux) and `scripts/install.ps1` (Windows) automate steps 1–6 below for a fresh machine — source download without git, a private Node.js 22 and FFmpeg under `<install dir>/.tools/`, `npm ci`, the dictionary, a Desktop shortcut, and a first start. They need no administrator rights and change nothing outside the install folder. An agent may run them, but must still perform the verification in step 7 and must not skip the boundaries above.
+
 1. If the repository is not present, clone `https://github.com/DanielDcool/tankuanime.git`. Then read the root `AGENTS.md` and `README.md` before changing anything.
 2. Inspect the repository status and identify the operating system and CPU architecture.
 3. Verify Node.js and both FFmpeg executables before dependency installation:

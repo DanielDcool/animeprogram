@@ -7,8 +7,10 @@
 > 动画发现功能见 `docs/superpowers/specs/2026-07-22-anime-discovery-design.md` 与对应 plan。
 > アニメ/ドラマ 双模式见 `docs/superpowers/specs/2026-08-14-drama-mode-design.md` 与对应 plan
 > （注意：该 spec 的 CSS 工作量估算与降级分支在实施中被修正，以本文件 §4 为准）。
+> 双击启动器与一行安装脚本见 `docs/superpowers/specs/2026-08-17-launcher-and-install-script-design.md` 与对应 plan
+> （实施时把 Node 22 的来源从 fnm 改为直接下载 nodejs.org 官方包，理由见 §4）。
 >
-> 最后校对：2026-08-16。
+> 最后校对：2026-08-17。
 
 ## 0. 如何使用这份文档
 
@@ -68,6 +70,14 @@ web/src/
                          ResourceResults.tsx（Nyaa 候选与 magnet 交接，取数可注入）
   drama/                 view.ts（放送年 / Bangumi 评分 / 卡片副行 / 详情路径 纯函数）
   player/                learningMode.ts(纯reducer,核心状态机) AnalysisPanel / TranscriptList / SubtitleOverlay
+
+scripts/                 纯 Node（无第三方依赖）与安装脚本
+  start.mjs              `npm start`：预检 → spawn server/web；`TANKU_OPEN_BROWSER=1` 时就绪后开浏览器
+  precheck.mjs           Node 22 硬检查 / FFmpeg 分级警告（纯函数 + 注入 exec，server 有单测）
+  browser.mjs            web URL / 各平台打开命令 / HTTP 就绪轮询（纯函数 + 注入 fetch，server 有单测）
+  verify-start.mjs       临时端口 + 临时数据目录真实起一次并检查 health（CI 用）
+  install.sh / .ps1      一行安装：tarball + 官方 Node 22 + FFmpeg → `<安装目录>/.tools/`，见 §4
+tanku Anime.command/.bat 根目录双击启动器：前置 `.tools/`，检查 Node 22，`TANKU_OPEN_BROWSER=1 npm start`
 ```
 
 SQLite 表：`media, subtitle_file, progress, explain_cache, settings, dict, jimaku_mapping, subtitle_sync_state, vocab`
@@ -99,6 +109,7 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
 | 开源首用与故障反馈：空媒体库三步引导；设置页区分必需媒体与可选扩展；媒体库/设置/单词本/解析有统一加载、错误、重试，单词删除支持一次撤销；未知路由显示 404 | LibraryPage + SettingsPage + VocabPage + AnalysisPanel + NotFoundPage |
 | 视觉系统改版：墨黑+米白单色系统，全部颜色/字体/圆角收敛为 index.css `:root` token；标识推导的四构件（方块 10px 圆角 / 选中态底边缺口 / 双横眼 / 短横指示器）贯穿导航、选集、解析面板；播放器字幕使用透明底高对比文字，避免遮挡画面 | index.css + components/BrandMark + App + 各页面 |
 | 开源安装降摩擦：`npm start` 启动预检（Node 22 硬检查、FFmpeg 分级警告、`TANKU_SKIP_PRECHECK=1` 跳过）；`npm run setup:jmdict` 一键下载/解压/导入词典，失败时给手动兜底指引 | scripts/precheck.mjs + scripts/start.mjs + analyze/jmdict-download.ts + server/scripts/setup-jmdict.ts |
+| 双击启动器 + 一行命令安装：根目录 `tanku Anime.command` / `tanku Anime.bat` 双击即 `npm start` 并在页面就绪后自动开浏览器（`TANKU_OPEN_BROWSER=1`）；`scripts/install.sh` / `install.ps1` 一条 curl/irm 命令把源码 tarball、官方 Node 22、FFmpeg 全装进 `~/tankuanime/.tools/`（无 sudo、不改系统 PATH/shell 配置），再 `npm ci` + 词典 + 桌面快捷方式 + 启动一次；重跑即更新 | tanku Anime.command/.bat + scripts/browser.mjs + scripts/start.mjs + scripts/install.sh/.ps1 + ci.yml install-smoke |
 | アニメ/ドラマ 双模式：顶部导航切换，整站在墨黑（アニメ）与米白（ドラマ）两套主题间反转；标识形状不变只反转配色；播放页在两模式下都保持墨黑 | web/src/mode.ts + App.tsx + index.css `[data-mode]` + BrandMark |
 | 日剧发现：按听力难度分级的随包清单 15 部 + 昼顔横幅，零配置可用；顶部搜索框查 Bangumi（免 key，只留 `platform=日剧`），结果为海报/评分/话数/电视台的作品卡片，同名精选自动并入难度与推荐理由；卡片下方「もっと探す（Nyaa で直接検索）」展开关键词直搜 Nyaa（0 命中或 Bangumi 不可用时自动展开），日文输入 0 命中时自动改用罗马字读音重查 | drama/bangumi.ts + drama/routes.ts + analyze/romaji.ts + DramaDiscoverPage |
 | 日剧详情与资源：`/drama/:id`（精选）与 `/drama/bgm/:id`（Bangumi，含日文简介/评分/放送局）共用一页；Nyaa Live Action 分类（默认全部）复用既有排序与 magnet 管线，Bangumi 条目用原题 + 拉丁别名（无别名则罗马字读音）检索；jimaku 候选同时查动画与真人剧库并合并去重 | DramaDetailPage + resource/provider.ts + drama/routes.ts + jimaku/client.ts |
@@ -234,6 +245,18 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   资源区可搜；返回后点「もっと探す」展开 Nyaa 直搜得 20 条；`zzqqxxyy` 0 命中 → 空文案 + 直搜自动展开。
   精选详情 `/drama/68786` 不变。控制台无 error，全程未播放媒体。自动测试基线为 server 246 个、web 56 个；
   两端 `tsc --noEmit` 与 web production build 通过。
+- 2026-08-17：**双击启动器与一行安装脚本落地**（设计见 `docs/superpowers/specs/2026-08-17-launcher-and-install-script-design.md`）。
+  `scripts/browser.mjs` 三个纯函数 9 个单测；`npm run verify:start` 未受影响。启动器用 `open` 走真实 Finder
+  路径实测：Finder 起的 Terminal 继承登录 shell 的 PATH（含 Homebrew），临时端口 3101/5273 + 临时 DATA_DIR
+  起服务后 Chrome 自动连上 5273，`/api/health` 200。`install.sh` 在隔离 HOME、`PATH=/usr/bin:/bin:/usr/sbin:/sbin`
+  （无 node/ffmpeg/brew）下真网实跑：master tarball → nodejs.org `node-v22.23.2-darwin-arm64` SHA-256 校验通过 →
+  evermeet `ffmpeg/ffprobe 9.0.1-tessus` 静态包在 Apple Silicon 经 Rosetta 可运行 → `npm ci` 170 包 9 秒（better-sqlite3
+  预编译命中）→ JMdict 217,974 词条 → 桌面符号链接；第二次运行 0.8 秒全部跳过；git 检出目录走 `git pull --ff-only` 分支
+  且 `TANKU_SKIP_JMDICT=1` 生效。把本地启动器复制进安装目录后用裸 PATH 直接执行：`.tools/node`（v22.23.2）
+  与 `.tools/ffmpeg` 被正确前置，预检无 FFmpeg 警告，浏览器自动打开。**Windows 侧本机无实机**：`install.ps1` /
+  `.bat` 未在本地执行过，正确性依赖新增的 CI `install-smoke` job（windows-latest 上用 Windows PowerShell 5.1
+  以 `Get-Content -Raw | iex` 方式运行、PATH 中剔除 node/ffmpeg 强制走下载分支、随后用安装目录的 Node 跑
+  `verify:start`）；`.bat` 的双击行为与 `.lnk` 只能等真实 Windows 用户确认。全程未播放媒体。
 
 ## 4. 关键决策记录（为什么这么做）
 
@@ -373,6 +396,29 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   ProxyAgent。代价：Node 22.12–22.20 的用户没有这个开关，只能靠代理软件的 TUN 模式；已在提示中写明版本要求。
   `start.mjs` 自动补 `NODE_USE_ENV_PROXY=1` 的想法暂不做，等确认新版 Node 用户仍会漏设第二个变量再说。
 
+- **安装摩擦按「双击启动器 → 一行安装脚本 → （观望）桌面应用」的顺序解决**（2026-08-16 确认，2026-08-17 前两项落地）：
+  已有真实用户卡在安装，awesome-japanese 维护者也指出同类播放器普遍对非技术用户不友好。`npx` 方案被排除
+  （它也要先有 Node，帮不到目标人群）；Tauri/Electron 需数周加 Apple 开发者账号，等真实反馈再定，不提前投入。
+- **安装脚本用源码 tarball，不依赖 git**（2026-08-17）：全新 Mac 上一调 `git` 就弹 Xcode 命令行工具安装框
+  （几百 MB）。tarball 解压到 `~/tankuanime`，重跑即更新（不删除 tarball 里没有的文件，因此 `server/data`、
+  `server/vendor`、`node_modules`、`.tools` 全部保留）；若目录已是 git 检出则改走 `git pull --ff-only`，
+  不覆盖开发者自己的 clone。
+- **Node 22 直接下载 nodejs.org 官方包到应用私有的 `.tools/node`，不用 fnm、不用 winget/brew**（2026-08-17）：
+  最初设想是 fnm，但直接下载官方包同样绕开「LTS 别名装成 24」的坑，而且不需要 shell 集成、不改任何用户配置、
+  不影响用户已装的其他版本 Node；启动器只需把 `.tools/node/bin` 前置到 PATH。SHA-256 对照官方 `SHASUMS256.txt`。
+  代价：用户在自己终端里敲 `npm` 时用的仍是系统 Node（可能没有）——目标人群不需要，技术用户走手动路径。
+- **FFmpeg 优先复用 PATH，否则装到应用私有的 `.tools/ffmpeg`，来源限定 ffmpeg.org 官网链接的构建**（2026-08-17）：
+  macOS 有 Homebrew 时 `brew install ffmpeg`；没有时下载 evermeet.cx 静态包（官网 macOS 栏目唯一链接；仅 x86_64，
+  Apple Silicon 依赖 Rosetta 2——脚本先探测，缺失时尝试 `softwareupdate --install-rosetta`，这是全脚本唯一可能要
+  密码的分支）。Windows 下载 gyan.dev essentials 只取两个 exe，不走 winget（避免依赖 winget 存在、UAC 弹窗与系统
+  PATH 修改）。Linux 只提示包管理器。server 通过 PATH 找 `ffmpeg`/`ffprobe`，因此启动器前置 `.tools/ffmpeg` 即可，
+  代码零改动。
+- **启动器就绪后自动开浏览器只在 `TANKU_OPEN_BROWSER=1` 时启用**（2026-08-17）：默认 `npm start`、`verify:start`
+  与 CI 行为不变；轮询逻辑放 `scripts/browser.mjs`（纯函数 + 注入 fetch，同 precheck 模式）。安装脚本结尾直接以
+  启动器方式启动一次，既是首启体验也是对启动器的真实验证；`TANKU_NO_LAUNCH=1` 关闭（CI 用）。
+- **可调参数只走环境变量，脚本零交互**（2026-08-17）：`curl | bash` / `irm | iex` 下 stdin 是管道，无法可靠提问；
+  `TANKU_INSTALL_DIR` / `TANKU_REF` / `TANKU_NO_LAUNCH` / `TANKU_SKIP_JMDICT` 四个开关够用。
+
 ## 5. 已知小问题 / 待打磨
 
 - jimaku_mapping.entry_name 存的是 ID 字符串而非作品名（仅备注字段，不影响功能，顺手可修）
@@ -481,6 +527,13 @@ qBittorrent/Transmission RPC、通过应用添加/暂停/删除下载任务。�
   一键词典安装落地，三语 README 与 `docs/AI-SETUP.md` 同步。设计见
   `docs/superpowers/specs/2026-08-08-onboarding-precheck-and-jmdict-setup-design.md`。安装侧剩余的主要摩擦是
   better-sqlite3 对 Node 22 的锁定；`node:sqlite` 迁移评估未排期。
+- **已完成（2026-08-17）**：双击启动器（`tanku Anime.command` / `.bat`，就绪后自动开浏览器）与一行安装脚本
+  （`scripts/install.sh` / `install.ps1`，源码 + 官方 Node 22 + FFmpeg 全进 `~/tankuanime/.tools/`，重跑即更新），
+  三语 README 快速开始已改为「一行安装 → 双击启动」在前、手动步骤在后。设计见
+  `docs/superpowers/specs/2026-08-17-launcher-and-install-script-design.md`。**未闭环**：Windows 侧只有 CI 实跑，
+  `.bat` 双击与桌面 `.lnk` 等真实 Windows 用户确认；非技术用户中文上手指南（`~/Documents/tanku/文案/` 草稿）
+  待用户确认后翻英文进 `docs/GETTING-STARTED.md`，其中 winget 装 FFmpeg 的段落应改为直接引用一行安装命令。
+  下一步是桌面应用（Tauri/Electron），明确等真实反馈再定。
 - 为 README 提供无版权风险的截图或短演示；可用空媒体库或演示数据拍摄，不能纳入未授权动画片段、字幕或个人文件名。
 - 发布第一个带清晰版本号和变更说明的 GitHub Release；在此之前不要把仓库的预发布状态写成稳定版。
 - 评估将本地 SQLite 中的 API key 改放入操作系统凭证库；公开发布前需先明确其本地存储和备份风险。

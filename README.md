@@ -35,6 +35,26 @@ tanku Anime is an early-stage, self-hosted web app. Your media files stay on you
 
 ## Quick start
 
+### One-line install (no git, Node.js, or FFmpeg needed beforehand)
+
+macOS — open Terminal (`⌘ + Space`, type `Terminal`) and paste:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.sh | bash
+```
+
+Windows — open PowerShell (`⊞ Win`, type `PowerShell`) and paste:
+
+```powershell
+irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.ps1 | iex
+```
+
+The script installs into `~/tankuanime` and keeps everything it downloads — the source, a private Node.js 22 (official nodejs.org build, SHA-256 verified), and FFmpeg — inside that folder. It needs no administrator rights and does not touch your system `PATH` or shell profile. If a Node.js 22 or FFmpeg is already on your `PATH`, it uses that instead. On macOS without Homebrew it downloads the static FFmpeg build linked from ffmpeg.org ([evermeet.cx](https://evermeet.cx/ffmpeg/), Intel binaries that run through Rosetta 2 on Apple Silicon); on Windows it downloads the [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) essentials build. It also fetches the Japanese dictionary (see below), puts a **tanku Anime** shortcut on your Desktop, and starts the app once.
+
+From then on: **double-click the Desktop shortcut** (or `tanku Anime.command` / `tanku Anime.bat` inside the folder) to start; the browser opens by itself when the app is ready. Run the same command again to update. Delete the folder and the shortcut to uninstall. Windows: the installer and launcher are exercised in CI on every push, but they have not yet been run on a physical Windows machine — reports welcome.
+
+### Manual setup
+
 **Requirements:** Node.js 22.x and FFmpeg, with both `ffmpeg` and `ffprobe` available on `PATH`. macOS is fully verified with real media; on Windows, install and startup are verified but media playback on physical hardware is not yet confirmed.
 
 macOS:
@@ -61,7 +81,7 @@ npm start
 
 `node --version` must report `v22.x`. Do not use a moving Node.js "LTS" package alias unless it still resolves to major version 22.
 
-`npm start` runs a quick environment check first: it stops with install guidance when the Node.js major version is not 22, and prints a warning (while still starting) when `ffmpeg` or `ffprobe` is missing from `PATH`.
+`npm start` runs a quick environment check first: it stops with install guidance when the Node.js major version is not 22, and prints a warning (while still starting) when `ffmpeg` or `ffprobe` is missing from `PATH`. Set `TANKU_OPEN_BROWSER=1` to have it open the browser once the page is ready — this is what the double-click launchers do.
 
 Open [http://localhost:5173](http://localhost:5173). The application creates its local database automatically and watches the `AnimeLibrary` folder in your home directory by default. You can edit the full path in **Settings**; restart the application after saving it.
 

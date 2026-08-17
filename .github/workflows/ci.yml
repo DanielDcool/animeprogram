@@ -26,3 +26,50 @@ jobs:
       - run: npm test
       - run: npm run build -w web
       - run: npm run verify:start
+
+  # 一行安装脚本の実機検証。PATH から Node/FFmpeg を外し、ダウンロード分岐まで通す。
+  # 辞書は既存テストで検証済みなので TANKU_SKIP_JMDICT=1 で省く。
+  install-smoke:
+    name: install script / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    env:
+      TANKU_REF: ${{ github.sha }}
+      TANKU_NO_LAUNCH: '1'
+      TANKU_SKIP_JMDICT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run install.sh (macOS, bare PATH)
+        if: runner.os == 'macOS'
+        env:
+          TANKU_INSTALL_DIR: ${{ runner.temp }}/tanku-install
+        run: PATH=/usr/bin:/bin:/usr/sbin:/sbin bash scripts/install.sh
+      - name: verify:start with the installed Node (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd "${{ runner.temp }}/tanku-install"
+          export PATH="$PWD/.tools/node/bin:$PWD/.tools/ffmpeg:$PATH"
+          node -v && ffprobe -version | head -n1
+          npm run verify:start
+      - name: Run install.ps1 (Windows, Node/FFmpeg removed from PATH)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          TANKU_INSTALL_DIR: ${{ runner.temp }}\tanku-install
+        run: |
+          $env:Path = (($env:Path -split ';') | Where-Object { $_ -notmatch 'node|npm|ffmpeg|chocolatey|hostedtoolcache' }) -join ';'
+          # Windows PowerShell 5.1（既定シェル）で、README と同じ「文字列を iex」経路を再現する
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-Content -Raw scripts/install.ps1 | Invoke-Expression"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: verify:start with the installed Node (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Set-Location "${{ runner.temp }}\tanku-install"
+          $env:Path = "$PWD\.tools\node;$PWD\.tools\ffmpeg;$env:Path"
+          node -v; ffprobe -version | Select-Object -First 1
+          npm run verify:start
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

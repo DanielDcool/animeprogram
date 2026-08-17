@@ -3,6 +3,21 @@
 All notable changes to tanku Anime are documented here. This project follows
 [Semantic Versioning](https://semver.org/); until 1.0.0, minor versions may include breaking changes.
 
+## [Unreleased]
+
+### Setup
+
+- One-line installer: `curl -fsSL …/scripts/install.sh | bash` (macOS/Linux) and `irm …/scripts/install.ps1 | iex` (Windows). It downloads the source without git, keeps a private Node.js 22 (official build, SHA-256 verified) and FFmpeg under `~/tankuanime/.tools/`, runs `npm ci` and the dictionary setup, puts a shortcut on the Desktop, and starts the app once. Needs no administrator rights and does not change the system `PATH` or shell profile; running it again updates in place.
+- Double-click launchers `tanku Anime.command` (macOS) and `tanku Anime.bat` (Windows) in the repository root; they start both processes and open the browser when the page is ready. `npm start` gets the same behaviour with `TANKU_OPEN_BROWSER=1`.
+
+### Learning
+
+- AI explanations can be written in Chinese or English; the default follows the system language.
+
+### Discovery
+
+- Drama search shows Bangumi title cards with poster, score, and episode count; the direct Nyaa keyword search remains under 「もっと探す」.
+
 ## [0.1.0] — 2026-08-16
 
 First tagged release. Everything below was built between 2026-07-21 and 2026-08-16.
@@ -45,3 +60,4 @@ First tagged release. Everything below was built between 2026-07-21 and 2026-08-
 - Sources that browsers still cannot play, such as H.264 10-bit, are flagged rather than transcoded.
 
 [0.1.0]: https://github.com/DanielDcool/tankuanime/releases/tag/v0.1.0
+[Unreleased]: https://github.com/DanielDcool/tankuanime/compare/v0.1.0...HEAD

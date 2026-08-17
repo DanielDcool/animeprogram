@@ -33,6 +33,26 @@ tanku Anime 是一个仍在早期阶段、自行部署在本机的 Web 应用。
 
 ## 快速开始
 
+### 一行命令安装（事先不需要 git、Node.js 或 FFmpeg）
+
+macOS：打开「终端」（`⌘ + 空格`，输入 `终端`），粘贴：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.sh | bash
+```
+
+Windows：打开 PowerShell（按 `⊞ Win` 键，输入 `PowerShell`），粘贴：
+
+```powershell
+irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.ps1 | iex
+```
+
+脚本会安装到 `~/tankuanime`，并把下载的所有东西——源码、一份应用私有的 Node.js 22（nodejs.org 官方构建，SHA-256 校验）、FFmpeg——都放在这个文件夹里。不需要管理员权限，不改系统 `PATH`，也不改 shell 配置。如果 `PATH` 里已经有 Node.js 22 或 FFmpeg，会直接沿用。macOS 没装 Homebrew 时，会下载 ffmpeg.org 官网链接的静态构建（[evermeet.cx](https://evermeet.cx/ffmpeg/)，Intel 二进制，Apple Silicon 上经 Rosetta 2 运行）；Windows 下载 [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) 的 essentials 构建。脚本还会顺手下载日语词典（见下文），在桌面放一个 **tanku Anime** 快捷方式，并启动一次应用。
+
+之后每次使用：**双击桌面快捷方式**（或文件夹里的 `tanku Anime.command` / `tanku Anime.bat`）即可，应用就绪后会自动打开浏览器。再运行一次同样的命令就是更新；删除文件夹和快捷方式就是卸载。Windows 说明：安装脚本和启动器每次推送都在 CI 上实跑，但还没有在实体 Windows 机器上运行过——欢迎反馈。
+
+### 手动安装
+
 **运行要求：** Node.js 22.x，以及已加入 `PATH` 的 `ffmpeg` 和 `ffprobe`。macOS 已用真实媒体完整验证；Windows 的安装与启动已验证，实体机上的媒体播放尚未确认。
 
 macOS：
@@ -59,7 +79,7 @@ npm start
 
 `node --version` 必须显示 `v22.x`。不要直接使用会随时间变化的 Node.js “LTS”软件包别名，除非确认它仍然安装 22 大版本。
 
-`npm start` 启动前会先做环境预检：Node.js 大版本不是 22 时会直接停止并给出安装指引；`PATH` 中缺少 `ffmpeg` 或 `ffprobe` 时会打印警告，但仍会启动。
+`npm start` 启动前会先做环境预检：Node.js 大版本不是 22 时会直接停止并给出安装指引；`PATH` 中缺少 `ffmpeg` 或 `ffprobe` 时会打印警告，但仍会启动。设置 `TANKU_OPEN_BROWSER=1` 可以让它在页面就绪后自动打开浏览器——双击启动器就是这么做的。
 
 打开 [http://localhost:5173](http://localhost:5173)。应用会自动创建本地数据库，并默认监视用户主目录中的 `AnimeLibrary` 文件夹。你可以在**设置**页直接修改完整路径；保存后重启应用即可生效。
 
