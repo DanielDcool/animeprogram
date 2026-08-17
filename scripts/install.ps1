@@ -51,7 +51,11 @@ function HaveCommand($name) { $null -ne (Get-Command $name -ErrorAction Silently
 # anything a native command writes to stderr would otherwise be turned into a terminating error.
 function NodeMajor($exe) {
   $ErrorActionPreference = 'Continue'
-  try { $out = & $exe -p 'process.versions.node.split(".")[0]'; if ($LASTEXITCODE -eq 0) { "$out".Trim() } else { $null } } catch { $null }
+  # `node -v` needs no quoting: Windows PowerShell 5.1 mangles quotes inside arguments to native commands.
+  try {
+    $out = & $exe -v
+    if ($LASTEXITCODE -eq 0 -and "$out".Trim() -match '^v(\d+)\.') { $Matches[1] } else { $null }
+  } catch { $null }
 }
 
 $TmpDir = Join-Path ([IO.Path]::GetTempPath()) ("tanku-install-" + [IO.Path]::GetRandomFileName())

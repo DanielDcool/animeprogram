@@ -15,8 +15,8 @@ where node >nul 2>nul
 if errorlevel 1 goto :nonode
 
 set "NODE_MAJOR="
-for /f "usebackq delims=" %%v in (`node -p "process.versions.node.split('.')[0]"`) do set "NODE_MAJOR=%%v"
-if not "%NODE_MAJOR%"=="22" goto :wrongnode
+for /f "tokens=1 delims=." %%v in ('node -v') do set "NODE_MAJOR=%%v"
+if not "%NODE_MAJOR%"=="v22" goto :wrongnode
 
 call npm start
 set "STATUS=%ERRORLEVEL%"
