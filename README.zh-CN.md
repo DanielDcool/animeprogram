@@ -14,7 +14,7 @@ macOS：打开「终端」（`⌘ + 空格`，输入 `终端`），粘贴：
 curl -fsSL https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.sh | bash
 ```
 
-Windows：打开 PowerShell（按 `⊞ Win` 键，输入 `PowerShell`），粘贴：
+Windows：按 `Win + R`，输入 `powershell` 回车打开 PowerShell，粘贴：
 
 ```powershell
 irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.ps1 | iex

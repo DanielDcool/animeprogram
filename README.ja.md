@@ -14,7 +14,7 @@ macOS：「ターミナル」を開き（`⌘ + スペース` で `ターミナ�
 curl -fsSL https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.sh | bash
 ```
 
-Windows：PowerShell を開き（`⊞ Win` キーを押して `PowerShell` と入力）、次を貼り付けます。
+Windows：`Win + R` を押して `powershell` と入力し Enter で PowerShell を開き、次を貼り付けます。
 
 ```powershell
 irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.ps1 | iex

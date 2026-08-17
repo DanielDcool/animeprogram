@@ -16,7 +16,7 @@ macOS — open Terminal (`⌘ + Space`, type `Terminal`) and paste:
 curl -fsSL https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.sh | bash
 ```
 
-Windows — open PowerShell (`⊞ Win`, type `PowerShell`) and paste:
+Windows — press `Win + R`, type `powershell`, press Enter, then paste:
 
 ```powershell
 irm https://raw.githubusercontent.com/DanielDcool/tankuanime/master/scripts/install.ps1 | iex
