@@ -89,11 +89,13 @@ for (const { name, child } of children) {
   });
 }
 
-// ダブルクリック起動用: TANKU_OPEN_BROWSER=1 のときだけ、web が応答し始めたらブラウザを開く。
+// ダブルクリック起動用: TANKU_OPEN_BROWSER=1 のときだけ、準備ができたらブラウザを開く。
+// Vite のプロキシ越しに /api/health の 200 を待つ——web だけ先に起動した状態で開くと、
+// 設定ページなどが最初の API 呼び出しに失敗したまま止まるため（server は web より起動が遅い）。
 // 通常の `npm start` / verify:start / CI では何もしない。
 if (process.env.TANKU_OPEN_BROWSER === '1') {
   const url = resolveWebUrl(process.env);
-  waitForHttpOk(url, { timeoutMs: 60_000, intervalMs: 500, fetchImpl: fetch }).then((ready) => {
+  waitForHttpOk(`${url}api/health`, { timeoutMs: 60_000, intervalMs: 500, fetchImpl: fetch, requireOk: true }).then((ready) => {
     if (stopping) return;
     if (!ready) {
       console.warn(`[tanku Anime] The web page did not answer within 60s. Open ${url} manually once it starts.`);

@@ -11,5 +11,7 @@ export function waitForHttpOk(
     timeoutMs: number;
     intervalMs: number;
     fetchImpl: (url: string, init?: RequestInit) => Promise<unknown>;
+    /** true なら 200 だけを準備完了とみなす（/api/health 用） */
+    requireOk?: boolean;
   },
 ): Promise<boolean>;

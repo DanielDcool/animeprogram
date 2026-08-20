@@ -19,15 +19,17 @@ export function browserOpenCommand(platform, url) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * URL が HTTP 応答を返すまでポーリングする。ステータスは問わない（Vite が応答すれば準備完了）。
+ * URL が HTTP 応答を返すまでポーリングする。既定ではステータスを問わない（応答があれば準備完了）。
+ * requireOk: true なら 200 だけを準備完了とみなす——Vite は起動済みでも後端がまだのとき
+ * プロキシが 500 を返すため、/api/health を待つときはこちらを使う。
  * 接続エラーは再試行し、timeoutMs を超えたら false。
  */
-export async function waitForHttpOk(url, { timeoutMs, intervalMs, fetchImpl }) {
+export async function waitForHttpOk(url, { timeoutMs, intervalMs, fetchImpl, requireOk = false }) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      await fetchImpl(url, { redirect: 'manual' });
-      return true;
+      const response = await fetchImpl(url, { redirect: 'manual' });
+      if (!requireOk || response.status === 200) return true;
     } catch {
       // まだ起動していない
     }

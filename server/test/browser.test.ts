@@ -52,6 +52,26 @@ describe('waitForHttpOk', () => {
     ).resolves.toBe(true);
   });
 
+  it('with requireOk, keeps polling through proxy errors until a 200 arrives', async () => {
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      // Vite は起動済みだが後端がまだのとき、プロキシは 500 を返す
+      return { status: calls < 3 ? 500 : 200 } as Response;
+    };
+    await expect(
+      waitForHttpOk('http://127.0.0.1:1/api/health', { timeoutMs: 1000, intervalMs: 1, fetchImpl, requireOk: true }),
+    ).resolves.toBe(true);
+    expect(calls).toBe(3);
+  });
+
+  it('with requireOk, resolves false when only errors arrive before the timeout', async () => {
+    const fetchImpl = async () => ({ status: 500 }) as Response;
+    await expect(
+      waitForHttpOk('http://127.0.0.1:1/api/health', { timeoutMs: 20, intervalMs: 5, fetchImpl, requireOk: true }),
+    ).resolves.toBe(false);
+  });
+
   it('resolves false when the timeout elapses', async () => {
     const fetchImpl = async () => {
       throw new Error('ECONNREFUSED');

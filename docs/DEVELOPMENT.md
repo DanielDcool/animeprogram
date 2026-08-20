@@ -265,6 +265,13 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   macos-latest / windows-latest 全绿：Windows 上 tarball → `node-v22.23.2-win-x64` 校验解压 → gyan essentials
   取出两个 exe → `npm ci` 169 包 7 秒 → `.lnk` 创建成功 → 用 `.tools\node` 跑 `verify:start` 通过。
   **教训：`.ps1` 里传给原生命令的参数不要含引号**（`node -v`、`--flag=value` 这类无引号形式最稳）。
+- 2026-08-20：**修复启动器开浏览器的竞态**（首个 Windows 实机反馈：装完打开设置页，媒体目录一片空白、
+  保存按钮灰掉，刷新后恢复）。根因：`TANKU_OPEN_BROWSER` 原来只等 Vite(5173) 应答就开浏览器，而 server(3001)
+  启动更慢——用户点进设置页时 `/api/settings` 失败，该页不自动重试，停在初始空状态（顶部有「設定を読み込め
+  ませんでした」+ 再試行，但用户容易滚过）。修复：改为轮询 Vite 代理后的 `/api/health` 且**只认 200**
+  （`waitForHttpOk` 新增 `requireOk`——后端未起时 Vite 代理返回 500，不能算就绪），此时前后端都真正可用。
+  单测 11 个含新增两例（500→200 穿透、超时仅 500 返回 false）；`verify:start` 通过。已装用户重跑安装命令生效。
+  遗留观察项：手动 `npm start` 秒开页面的人理论上仍可能撞到，设置页要不要自动重试等再有反馈再说。
 - 2026-08-20：**启动器图标换成标识**（用户反馈 Windows 桌面 `.lnk` 是默认齿轮图标）。`scripts/make-icons.py`
   纯标准库按 BrandMark.tsx 的几何参数生成 `docs/images/tanku.ico`（16/32/48 BMP + 256 PNG 结构已解析验证）与
   `tanku.png`（512）；install.ps1 给 `.lnk` 设 `IconLocation`，install.sh 用 osascript(JXA)+NSWorkspace 给

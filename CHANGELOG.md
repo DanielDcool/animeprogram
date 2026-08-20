@@ -8,7 +8,7 @@ All notable changes to tanku Anime are documented here. This project follows
 ### Setup
 
 - One-line installer: `curl -fsSL …/scripts/install.sh | bash` (macOS/Linux) and `irm …/scripts/install.ps1 | iex` (Windows). It downloads the source without git, keeps a private Node.js 22 (official build, SHA-256 verified) and FFmpeg under `~/tankuanime/.tools/`, runs `npm ci` and the dictionary setup, puts a shortcut on the Desktop, and starts the app once. Needs no administrator rights and does not change the system `PATH` or shell profile; running it again updates in place.
-- Double-click launchers `tanku Anime.command` (macOS) and `tanku Anime.bat` (Windows) in the repository root; they start both processes and open the browser when the page is ready. `npm start` gets the same behaviour with `TANKU_OPEN_BROWSER=1`.
+- Double-click launchers `tanku Anime.command` (macOS) and `tanku Anime.bat` (Windows) in the repository root; they start both processes and open the browser once the backend health check passes (not just the web page), so the first screen never loads with the API still down. `npm start` gets the same behaviour with `TANKU_OPEN_BROWSER=1`.
 - The desktop shortcut now uses the tanku brand mark as its icon on both Windows (.lnk) and macOS (Finder custom icon); re-run the install command to pick it up on an existing install.
 - Settings page explains how to obtain each API key (Jimaku, Anthropic, DeepSeek, OpenAI, Gemini) in a collapsible three-step guide with a direct link. Clicking 「字幕を探す」 without a Jimaku key now jumps to Settings with the field highlighted and the guide open; the player's AI hint links there too. Fixed the Jimaku placeholder URL (`/account`, not `/profile`).
 
