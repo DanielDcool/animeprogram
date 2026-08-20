@@ -204,6 +204,8 @@ function New-DesktopShortcut {
     $lnk.TargetPath = Join-Path $InstallDir $Launcher
     $lnk.WorkingDirectory = $InstallDir
     $lnk.Description = 'Start tanku Anime'
+    $icon = Join-Path $InstallDir 'docs\images\tanku.ico'
+    if (Test-Path -LiteralPath $icon) { $lnk.IconLocation = "$icon,0" }
     $lnk.Save()
     Log "Desktop shortcut created: $desktop\tanku Anime.lnk"
   } catch {

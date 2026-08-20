@@ -205,6 +205,15 @@ setup_dictionary() {
 # ---------------------------------------------------------------- 6. shortcut + launch
 create_shortcut() {
   [ "$OS_ID" = "darwin" ] || return 0
+  # ランチャーに標識アイコンを付ける（Finder 表示用。失敗しても致命的ではない）
+  if [ -f "$INSTALL_DIR/docs/images/tanku.png" ] && command -v osascript >/dev/null 2>&1; then
+    osascript -l JavaScript -e 'function run(argv) {
+      ObjC.import("AppKit");
+      const img = $.NSImage.alloc.initWithContentsOfFile(argv[0]);
+      return $.NSWorkspace.sharedWorkspace.setIconForFileOptions(img, argv[1], 0);
+    }' "$INSTALL_DIR/docs/images/tanku.png" "$INSTALL_DIR/$LAUNCHER" >/dev/null 2>&1 \
+      || warn "Could not set the launcher icon (cosmetic only)."
+  fi
   [ -d "$HOME/Desktop" ] || return 0
   ln -sfn "$INSTALL_DIR/$LAUNCHER" "$HOME/Desktop/$LAUNCHER"
   log "Desktop shortcut created: ~/Desktop/$LAUNCHER"

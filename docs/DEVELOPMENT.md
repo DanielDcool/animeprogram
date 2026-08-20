@@ -78,6 +78,7 @@ scripts/                 纯 Node（无第三方依赖）与安装脚本
   browser.mjs            web URL / 各平台打开命令 / HTTP 就绪轮询（纯函数 + 注入 fetch，server 有单测）
   verify-start.mjs       临时端口 + 临时数据目录真实起一次并检查 health（CI 用）
   install.sh / .ps1      一行安装：tarball + 官方 Node 22 + FFmpeg → `<安装目录>/.tools/`，见 §4
+  make-icons.py          从 BrandMark 几何参数生成 docs/images/tanku.ico（.lnk 用）与 tanku.png（macOS 图标用）
 tanku Anime.command/.bat 根目录双击启动器：前置 `.tools/`，检查 Node 22，`TANKU_OPEN_BROWSER=1 npm start`
 ```
 
@@ -264,6 +265,12 @@ settings 是通用 KV 表，新增凭证项不需要数据库迁移。
   macos-latest / windows-latest 全绿：Windows 上 tarball → `node-v22.23.2-win-x64` 校验解压 → gyan essentials
   取出两个 exe → `npm ci` 169 包 7 秒 → `.lnk` 创建成功 → 用 `.tools\node` 跑 `verify:start` 通过。
   **教训：`.ps1` 里传给原生命令的参数不要含引号**（`node -v`、`--flag=value` 这类无引号形式最稳）。
+- 2026-08-20：**启动器图标换成标识**（用户反馈 Windows 桌面 `.lnk` 是默认齿轮图标）。`scripts/make-icons.py`
+  纯标准库按 BrandMark.tsx 的几何参数生成 `docs/images/tanku.ico`（16/32/48 BMP + 256 PNG 结构已解析验证）与
+  `tanku.png`（512）；install.ps1 给 `.lnk` 设 `IconLocation`，install.sh 用 osascript(JXA)+NSWorkspace 给
+  `.command` 设 Finder 自定义图标（xattr 已在干净副本上实测写入；git 不保存 xattr，所以只能装机时设置）。
+  已装用户重跑一次安装命令即可拿到图标。`.lnk` 的实际显示效果无本地 Windows，可等真实用户反馈。改 logo 后
+  重跑 `python3 scripts/make-icons.py` 再提交两个产物。
 - 2026-08-17：**API キー引导落地**（用户反馈：装完之后唯一还要用户动手的就是 jimaku key 与 AI key，得把「去哪申请、
   在哪拿」写进产品里）。`keyGuides.ts` 7 个单测（意图解析、站内 back 校验、返回文案、四家 AI 与 jimaku 的 URL/步骤）。
   浏览器实测用临时 DATA_DIR/MEDIA_DIR 的独立实例（3105/5275）并直接向 SQLite 插入一行 media：点「字幕を探す」→ 服务端 503
